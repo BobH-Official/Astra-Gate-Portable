@@ -1,109 +1,92 @@
 # Astra Gate Portable (unofficial)
 
 Unofficial, unpack-and-run Windows builds of
-[Astra Gate](https://github.com/239573049/Astra-Gate), maintained by BobH.
+[Astra Gate](https://github.com/239573049/Astra-Gate).
 
 | | |
 | --- | --- |
 | Upstream | [239573049/Astra-Gate](https://github.com/239573049/Astra-Gate) |
 | License | [MIT](LICENSE), same terms as upstream |
-| Scope | Unofficial Windows portable builds; this repository is not a source fork |
+| Platform | Windows x64; ARM64 builds are available manually |
+| Scope | Unofficial portable packaging; this repository is not a source fork |
 
-This repository is a packaging wrapper, not a fork of the upstream source. It contains
-no Astra Gate source code. At build time it shallow-clones an upstream release tag,
-overlays the packaging script and optional patches, builds the Windows desktop app with
-its bundled server, and publishes a portable ZIP.
+This repository does not contain Astra Gate source code. Each release is built from an
+upstream release tag: the build shallow-clones that tag, overlays the packaging script,
+and runs upstream's build commands. See [How it works](#how-it-works).
 
 > Not affiliated with the Astra Gate project. Report portable-build problems here; report
 > product bugs upstream.
 
-## What the ZIP contains
+## Download and run
+
+Download the latest `Astra-<version>-win32-x64-portable.zip` and its `.sha256` file from
+the [latest release](../../releases/latest) page.
+
+1. Verify the SHA-256 (see below).
+2. Unpack the ZIP anywhere.
+3. Run `Astra.exe`.
+
+No installer, administrator rights, Node.js, or .NET runtime is required. The app uses
+upstream's data directory (`%USERPROFILE%\.astra`) by default. Set `ASTRA_HOME` before
+launching to keep data next to the unpacked files; this is an upstream-supported
+environment variable. The binaries are not code-signed, so Windows SmartScreen may warn.
+
+## Package contents
+
+The ZIP contains:
 
 - `Astra.exe` — the Avalonia desktop app, Native AOT.
 - `resources/server/` — `astra-server.exe`, its native companions, and the web console.
-- `LICENSE` and `THIRD_PARTY_NOTICES.md` from the upstream tag, because the ZIP
-  redistributes upstream binaries.
-- No installer, no admin rights, no Node.js and no .NET runtime required.
+- `LICENSE` and `THIRD_PARTY_NOTICES.md` from the upstream tag.
 
-Unpack the ZIP anywhere and run `Astra.exe`. The application still uses upstream's data
-directory (`%USERPROFILE%\.astra`) by default. Set `ASTRA_HOME` before launching to keep
-data beside the unpacked files; this is an upstream-supported environment variable.
+Each release also publishes:
 
-The binaries are not code-signed, so Windows SmartScreen may warn. Verify the attached
-SHA-256 before running.
+- `Astra-<version>-win32-<arch>-portable.zip.sha256`
+- `build-info.json` — upstream tag, RID, size, SHA-256, and build run.
 
-## Repository layout
+## Verify the download
 
-Only `scripts/package-portable.mjs` mirrors an upstream path exactly. The `scripts/`
-directory can therefore be copied or merged into an upstream checkout without path
-translation. Everything under `wrapper/` is intentionally outside upstream's tree.
-
-| Path | Purpose | Upstream PR? |
-| --- | --- | --- |
-| `scripts/package-portable.mjs` | Builds the portable ZIP from an upstream checkout. Self-contained and intended to be PR-able. | Yes |
-| `wrapper/build-portable.mjs` | Wrapper-only orchestrator: resolves the tag, clones upstream, overlays scripts/patches, builds, packages. | No |
-| `wrapper/latest-upstream-tag.mjs` | Reads the latest stable upstream release tag from the GitHub API. | No |
-| `.mise.toml` | Tool versions and local tasks. | No |
-| `.github/workflows/portable-ci.yml` | Builds on pull requests and pushes to `master`; no release. | No |
-| `.github/workflows/portable-release.yml` | Scheduled/manual upstream check, build and GitHub release. | No |
-| `UPSTREAM` | One line: `owner/repo` of the upstream project. | No |
-| `LICENSE` | MIT license for this wrapper; same terms as upstream. | No |
-| `patches/` | Optional source patches. Not created until a patch is actually needed. | No |
-| `README.md`, `AGENTS.md` | Documentation. | No |
-
-## Files that can be pushed upstream 1:1
-
-Only one file is intended to be copied verbatim into an upstream checkout and proposed
-as a PR:
-
-| Local path | Upstream path | How to use |
-| --- | --- | --- |
-| `scripts/package-portable.mjs` | `scripts/package-portable.mjs` | Copy as-is, commit it alone, and open a PR against upstream `main`. |
-
-No other file is upstream-mergeable. In particular, `wrapper/**`, `.github/workflows/**`,
-`.mise.toml`, `UPSTREAM`, `README.md`, `AGENTS.md` and `LICENSE` are wrapper-only. The root
-`LICENSE` is the wrapper's copy; the ZIP carries the upstream license from the built tag.
-`scripts/package-portable.mjs` uses only upstream's existing `scripts/rid-map.mjs` and
-`scripts/pack-platform.mjs` and runs from a clean upstream checkout.
-
-Export it to a fork branch:
+The `.sha256` file uses the standard `<sha256>  <filename>` format.
 
 ```powershell
-git switch -c feat/portable-packaging upstream/main
-Copy-Item <path-to-this-repo>/scripts/package-portable.mjs scripts/package-portable.mjs
-git add scripts/package-portable.mjs
-git commit -m "feat: add portable packaging script"
+Get-FileHash .\Astra-<version>-win32-x64-portable.zip -Algorithm SHA256
+Get-Content .\Astra-<version>-win32-x64-portable.zip.sha256
 ```
 
-The path in this repository is already the upstream path, so no translation is needed.
+On a system with `sha256sum`:
 
-## How a build works
-
-1. Resolve the upstream release tag: an explicit `--tag`, or the latest stable release
-   from the GitHub API.
-2. Shallow-clone `https://github.com/<UPSTREAM>` at that tag into `.upstream/`
-   (gitignored).
-3. Check that the tag matches `cli/package.json` and that upstream still has the
-   packaging helpers this wrapper depends on.
-4. Copy `scripts/package-portable.mjs` into the checkout.
-5. Apply `patches/*.patch` in filename order, if any exist.
-6. Run the same build steps as the upstream release: pnpm install, web build, Native AOT
-   publish of the server, Native AOT build/publish of the desktop app, then the server
-   plugin self-test and the desktop `--smoke` test.
-7. Run `scripts/package-portable.mjs`: stage `Astra.exe` plus the packed server, create
-   the ZIP, write its SHA-256, extract the ZIP and verify the extracted layout and file
-   sizes.
-8. Write `build-info.json` with the upstream tag, RID, checksum, size and workflow run.
-
-Outputs land in `out/portable/<rid>/`:
-
-```
-Astra-<version>-win32-<arch>-portable.zip
-Astra-<version>-win32-<arch>-portable.zip.sha256
-build-info.json
+```bash
+sha256sum -c Astra-<version>-win32-x64-portable.zip.sha256
 ```
 
-## Local build
+The release workflow verifies the checksum before publishing and repeats the hash in the
+release notes.
+
+### Scoop
+
+The checksum asset is exactly `<zip>.sha256`, so a Scoop manifest can use:
+
+```json
+"hash": {
+  "url": "$url.sha256"
+}
+```
+
+Adjust the manifest URL for the ARM64 asset if needed.
+
+## Releases
+
+Stable upstream releases are discovered automatically every six hours. Release tags use
+the upstream tag with a prefix:
+
+```text
+portable-<upstream tag>    # e.g. portable-v0.14.3100
+```
+
+Preview versions are marked as prereleases and are not built automatically. Scheduled
+builds target `win-x64`; `win-arm64` builds are available manually.
+
+## Build from source
 
 Requirements:
 
@@ -145,97 +128,84 @@ node --check scripts/package-portable.mjs
 ```
 
 `--prepare-only` is safe on non-Windows hosts. The full build requires Windows because
-the Windows Native AOT publish and the ZIP step use Windows tooling.
+the Windows Native AOT publish and the ZIP step use Windows tooling. Full builds take
+roughly 30–60 minutes. Pull requests that touch the build wrapper run the same build in
+GitHub Actions.
 
-## Continuous integration and automatic releases
+## How it works
 
-`Portable CI` runs on pull requests and pushes to `master` that touch wrapper files. It
-builds the latest stable upstream and uploads the ZIP as a workflow artifact. It does not
-create a release.
+1. Resolve the upstream release tag: an explicit `--tag`, or the latest stable release
+   from the GitHub API.
+2. Shallow-clone `https://github.com/<UPSTREAM>` at that tag into `.upstream/`
+   (gitignored).
+3. Check that the tag matches `cli/package.json` and that upstream still has the packaging
+   helpers this wrapper depends on.
+4. Copy `scripts/package-portable.mjs` into the checkout and apply optional patches.
+5. Run the same build steps as the upstream release: pnpm install, web build, Native AOT
+   publish of the server, Native AOT build/publish of the desktop app, then the server
+   plugin self-test and the desktop `--smoke` test.
+6. Run `scripts/package-portable.mjs`: stage `Astra.exe` plus the packed server, create
+   the ZIP, write its SHA-256, extract the ZIP and verify the extracted layout and file
+   sizes.
+7. Write `build-info.json` with the upstream tag, RID, checksum, size and workflow run.
 
-`Portable release` runs:
+Outputs land in `out/portable/<rid>/`:
 
-- every 6 hours on a schedule, and
-- manually via `workflow_dispatch`, with optional `tag`, `rid` and `force` inputs.
-
-The scheduled run resolves the latest stable upstream tag, checks whether this repository
-already has a release with tag `portable-<upstream tag>`, and only builds when it does not.
-A manual run can force a rebuild. Release tags are:
-
-```
-portable-<upstream tag>    # e.g. portable-v0.14.3100
-```
-
-and contain the ZIP, its `.sha256` file and `build-info.json`. Preview versions are marked
-as prereleases. The scheduled build covers `win-x64`; `win-arm64` is available through
-manual dispatch and requires access to the `windows-11-arm` runner.
-
-### Scoop and checksum verification
-
-Every release uploads `Astra-<version>-win32-<arch>-portable.zip.sha256` in the standard
-`<sha256>  <filename>` format. The release workflow verifies the checksum with
-`sha256sum -c` before publishing and repeats the hash in the release notes. A Scoop
-manifest can point its autoupdate hash at that asset:
-
-```json
-"hash": {
-  "url": "$url.sha256"
-}
+```text
+Astra-<version>-win32-<arch>-portable.zip
+Astra-<version>-win32-<arch>-portable.zip.sha256
+build-info.json
 ```
 
-This works because the release asset is exactly `<zip>.sha256`. Adjust the manifest URL
-for `arm64` if needed.
+## Repository layout
 
-### Why polling instead of `on: release`
+Only `scripts/package-portable.mjs` mirrors an upstream path exactly. The `scripts/`
+directory can therefore be copied or merged into an upstream checkout without path
+translation. Everything under `wrapper/` is intentionally outside upstream's tree.
 
-A GitHub Actions `release` event only fires in the repository where the release is
-published. A wrapper repository (or a fork) cannot subscribe to another repository's
-release events. The practical options are:
+| Path | Purpose | Upstream PR? |
+| --- | --- | --- |
+| `scripts/package-portable.mjs` | Builds the portable ZIP from an upstream checkout. Self-contained and intended to be PR-able. | Yes |
+| `wrapper/build-portable.mjs` | Wrapper-only orchestrator: resolves the tag, clones upstream, overlays scripts/patches, builds, packages. | No |
+| `wrapper/latest-upstream-tag.mjs` | Reads the latest stable upstream release tag from the GitHub API. | No |
+| `.mise.toml` | Tool versions and local tasks. | No |
+| `.github/workflows/portable-ci.yml` | Builds pull requests and `master` pushes; no release. | No |
+| `.github/workflows/portable-release.yml` | Scheduled/manual upstream check, build and GitHub release. | No |
+| `UPSTREAM` | One line: `owner/repo` of the upstream project. | No |
+| `LICENSE` | MIT license for this wrapper; same terms as upstream. | No |
+| `patches/` | Optional source patches. Not created until a patch is actually needed. | No |
+| `README.md`, `AGENTS.md` | Documentation. | No |
 
-1. **Scheduled polling** (implemented): no upstream cooperation, at most ~6 hours of
-   delay, and GitHub may delay scheduled runs at peak times.
-2. **`repository_dispatch` from upstream**: requires the upstream maintainers to add a
-   token and a dispatch step to their release workflow. This is the lowest-latency option
-   if they agree.
-3. **A webhook/GitHub App or RSS bridge**: an extra service to host and maintain.
+## Contributing upstream
 
-The schedule only runs on the repository's default branch. Push `master` and set it as the
-default branch before relying on automatic releases.
+Only one file can be copied 1:1 into an upstream checkout and proposed as a PR:
 
-## Keeping the PR-able part separate
+| Local path | Upstream path | How to use |
+| --- | --- | --- |
+| `scripts/package-portable.mjs` | `scripts/package-portable.mjs` | Copy as-is, commit it alone, and open a PR against upstream `main`. |
 
-GitHub has no configuration file that marks part of a repository as "PR-only". A pull
-request contains the commits on a branch in a fork; `CODEOWNERS`, path filters and
-required checks affect review and CI, but they do not restrict what a PR changes.
+No other file is upstream-mergeable. `wrapper/**`, `.github/workflows/**`, `.mise.toml`,
+`UPSTREAM`, `README.md`, `AGENTS.md` and `LICENSE` are wrapper-only. The root `LICENSE` is
+the wrapper's copy; the ZIP carries the upstream license from the built tag.
+`scripts/package-portable.mjs` uses only upstream's existing `scripts/rid-map.mjs` and
+`scripts/pack-platform.mjs` and runs from a clean upstream checkout.
 
-The separation therefore has to be structural:
+Export it to a fork branch:
 
-- This wrapper repository contains all wrapper-only files: workflows, mise tasks, the
-  orchestrator and documentation.
-- For an upstream PR, fork Astra Gate, branch from upstream `main`, copy in **only**
-  `scripts/package-portable.mjs`, commit that one file, and open the PR.
-- Keep the fork's default branch identical to upstream. Never put wrapper workflows or
-  mise configuration on it.
-- Keep PR-able changes and wrapper-only changes in separate commits even in this
-  repository. If a commit mixes them, split it before exporting the PR branch.
+```powershell
+git switch -c feat/portable-packaging upstream/main
+Copy-Item <path-to-this-repo>/scripts/package-portable.mjs scripts/package-portable.mjs
+git add scripts/package-portable.mjs
+git commit -m "feat: add portable packaging script"
+```
 
-Before opening the PR, open an issue to ask whether a portable ZIP is welcome and where
-the script should live. The script is deliberately self-contained and uses upstream's
-existing `scripts/rid-map.mjs` and `scripts/pack-platform.mjs`; it does not require the
-wrapper repository.
+The path in this repository is already the upstream path, so no translation is needed.
+Keep wrapper workflows, mise configuration and documentation off the upstream PR branch.
+GitHub has no setting that restricts PR contents to a path; the separation comes from the
+repository, the branch and the commits.
 
-## Patches
-
-Do not create `patches/` preemptively. If a source change is needed:
-
-1. Add `patches/NNNN-short-description.patch`.
-2. The orchestrator applies patches in filename order after copying the packaging script.
-3. Each patch is checked with `git apply --check` first; a patch that no longer applies
-   fails the build.
-
-Patches are not rebased automatically. A failed scheduled build is the signal that a
-patch needs maintenance. This is intentional: silently auto-merging source patches is
-riskier than failing loudly.
+Consider opening an issue upstream first to ask whether a portable ZIP is welcome and
+where the script should live.
 
 ## License
 
@@ -247,45 +217,10 @@ upstream binaries.
 
 Upstream: [239573049/Astra-Gate](https://github.com/239573049/Astra-Gate).
 
-## Suggested GitHub repository metadata
-
-Description:
-
-> Unofficial portable Windows builds of Astra Gate, packaged from upstream release tags.
-
-Topics: `astra-gate`, `portable`, `windows`, `unofficial`, `packaging`, `scoop`.
-
-Create the repository and set the metadata:
-
-```powershell
-gh repo create <owner>/BobH-Astra-Gate-Portable --public --source=. --remote=origin --push `
-  --description "Unofficial portable Windows builds of Astra Gate, packaged from upstream release tags."
-gh repo edit --description "Unofficial portable Windows builds of Astra Gate, packaged from upstream release tags." `
-  --add-topic astra-gate --add-topic portable --add-topic windows `
-  --add-topic unofficial --add-topic packaging --add-topic scoop
-```
-
-For an existing repository, run only the `gh repo edit` command. Release tags are
-created by the release workflow as `portable-v<upstream-version>`.
-
-## Repository setup checklist
-
-1. Create the GitHub repository and push the `master` bookmark.
-2. Set `master` as the default branch.
-3. Enable Actions.
-4. If the repository policy restricts the default token, allow read/write workflow
-   permissions, or rely on the job-level `contents: write` in the release workflow.
-5. Run `Portable release` manually once to verify the full path.
-6. Optionally open an upstream issue about accepting `scripts/package-portable.mjs`.
-
 ## Limitations
 
 - Windows only; there are no macOS or Linux portable builds here.
 - No installer integration, auto-update integration or code signing.
 - Data is not relocated automatically: use `ASTRA_HOME` if you want a self-contained
   directory.
-- Only stable upstream releases are discovered automatically; previews need a manual
-  tag.
-- GitHub may disable a scheduled workflow after 60 days without repository activity;
-  re-enable it from the Actions tab if the schedule stops.
-- The build is heavy (roughly 30–60 minutes) because it builds two Native AOT binaries.
+- Preview upstream versions are not discovered automatically.

@@ -2,6 +2,9 @@
 
 Guidance for coding agents working in this repository. Read `README.md` first.
 
+`README.md` is the public, user-facing document. Keep repository-owner and maintenance
+instructions in this file.
+
 ## What this repository is
 
 A packaging wrapper for unofficial Windows portable builds of Astra Gate. Upstream is
@@ -105,17 +108,43 @@ Do not squash wrapper changes into the PR-able commit. If a change spans both, s
   latest stable tag (or an input tag), skips when `portable-<tag>` already exists unless
   `force` is set, builds, then creates or updates the release with the ZIP, SHA-256 and
   `build-info.json`.
+- Manual dispatch inputs are `tag` (empty = latest stable), `rid` (`win-x64` or
+  `win-arm64`) and `force` (rebuild an existing release). Preview tags are not discovered
+  automatically; dispatch with the preview tag.
 - Every release must include the `.sha256` asset; the release job verifies it with
-  `sha256sum -c` before publishing. Do not remove it: Scoop and manual verification use it.
+  `sha256sum -c` before publishing and repeats the hash plus the Scoop `hash.url` in the
+  release notes. Do not remove it: Scoop and manual verification use it.
 - The packaging script copies the upstream `LICENSE` and `THIRD_PARTY_NOTICES.md` into the
   portable ZIP. Keep that behavior when changing the packaging script.
 - The scheduled build uses `win-x64`. `win-arm64` is manual-only and requires the
   `windows-11-arm` runner.
-- Scheduled workflows run only on the default branch. Push `master` and set it as default
-  before relying on the schedule. GitHub may disable a schedule after 60 days without
-  repository activity; re-enable it in the Actions tab if needed.
-- GitHub cannot subscribe to another repository's release events. Polling the API is
-  intentional; do not replace it with `on: release` for upstream.
+- Scheduled workflows run only on the default branch. GitHub may disable a schedule after
+  60 days without repository activity; re-enable it if needed.
+
+### Why polling instead of `on: release`
+
+A GitHub Actions `release` event only fires in the repository where the release is
+published. A wrapper repository (or a fork) cannot subscribe to another repository's
+release events. The options are:
+
+1. Scheduled polling (implemented): no upstream cooperation; up to ~6 hours delay.
+2. `repository_dispatch` from upstream: requires the maintainers to add a token and a
+   dispatch step; lowest latency if they agree.
+3. Webhook/GitHub App/RSS bridge: an extra service to host and maintain.
+
+Do not replace the poll with `on: release` for upstream.
+
+## Patches
+
+Do not create `patches/` preemptively. If a source change is needed:
+
+1. Add `patches/NNNN-short-description.patch`.
+2. The orchestrator applies patches in filename order after copying the packaging script.
+3. Each patch is checked with `git apply --check`; a patch that no longer applies fails
+   the build.
+
+Patches are not rebased automatically. A failed scheduled build signals that a patch
+needs maintenance; do not auto-merge source patches.
 
 ## Upstream changes
 
@@ -124,9 +153,9 @@ Do not squash wrapper changes into the PR-able commit. If a change spans both, s
   output layout or the release build commands, update `scripts/package-portable.mjs` and
   `wrapper/build-portable.mjs` together, then verify with `--prepare-only` and a full
   Windows build.
-- If a source patch is needed, add `patches/NNNN-description.patch`. The orchestrator
-  checks each patch with `git apply --check` and fails the build when it no longer
-  applies. Do not auto-rebase patches.
+- If a source patch is needed, add `patches/NNNN-description.patch`; see [Patches](#patches).
+  The orchestrator checks each patch with `git apply --check` and fails the build when it
+  no longer applies. Do not auto-rebase patches.
 
 ## PR to upstream
 
