@@ -1,0 +1,91 @@
+name: Portable CI
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - '.mise.toml'
+      - 'UPSTREAM'
+      - '.github/workflows/portable-ci.yml'
+      - '.github/workflows/portable-release.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+      - '.mise.toml'
+      - 'UPSTREAM'
+      - '.github/workflows/portable-ci.yml'
+      - '.github/workflows/portable-release.yml'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Upstream release tag to build (empty = latest stable)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build win-x64 portable ZIP
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable Git long paths
+        shell: bash
+        run: git config --global core.longpaths true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-dotnet@v4
+        id: dotnet
+        continue-on-error: true
+        with:
+          dotnet-version: 11.0.100-rc.3.26522.148
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.dotnet.outcome == 'failure'
+        with:
+          dotnet-version: 11.0.100-rc.3.26522.148
+
+      - name: Check scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/build-portable.mjs
+          node --check scripts/latest-upstream-tag.mjs
+          node --check scripts/package-portable.mjs
+
+      - name: Build portable ZIP
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -n "${INPUT_TAG:-}" ]; then args+=(--tag "$INPUT_TAG"); fi
+          node scripts/build-portable.mjs "${args[@]}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: astra-portable-ci
+          path: |
+            out/portable/*/*.zip
+            out/portable/*/*.sha256
+            out/portable/*/build-info.json
+          if-no-files-found: error
+          retention-days: 7
