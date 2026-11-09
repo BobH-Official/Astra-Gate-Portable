@@ -39,9 +39,9 @@ jobs:
       version: ${{ steps.resolve.outputs.version }}
       skip: ${{ steps.resolve.outputs.skip }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
 
@@ -105,27 +105,27 @@ jobs:
     runs-on: ${{ github.event.inputs.rid == 'win-arm64' && 'windows-11-arm' || 'windows-latest' }}
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Enable Git long paths
         shell: bash
         run: git config --global core.longpaths true
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.15.0
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         id: dotnet
         continue-on-error: true
         with:
           dotnet-version: 11.0.100-rc.3.26522.148
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         if: steps.dotnet.outcome == 'failure'
         with:
           dotnet-version: 11.0.100-rc.3.26522.148
@@ -178,7 +178,7 @@ jobs:
           set -euo pipefail
           node wrapper/build-portable.mjs --tag "$TAG" --rid "$RID"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: astra-portable-${{ needs.resolve.outputs.version }}-${{ github.event.inputs.rid || 'win-x64' }}
           path: |
@@ -196,9 +196,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: astra-portable-${{ needs.resolve.outputs.version }}-*
           path: dist
