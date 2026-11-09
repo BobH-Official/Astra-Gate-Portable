@@ -5,6 +5,7 @@ Unofficial, unpack-and-run Windows builds of
 
 | | |
 | --- | --- |
+| Repository | [BobH-Official/Astra-Gate-Portable](https://github.com/BobH-Official/Astra-Gate-Portable) |
 | Upstream | [239573049/Astra-Gate](https://github.com/239573049/Astra-Gate) |
 | License | [MIT](LICENSE), same terms as upstream |
 | Platform | Windows x64; ARM64 builds are available manually |
@@ -14,13 +15,15 @@ This repository does not contain Astra Gate source code. Each release is built f
 upstream release tag: the build shallow-clones that tag, overlays the packaging script,
 and runs upstream's build commands. See [How it works](#how-it-works).
 
-> Not affiliated with the Astra Gate project. Report portable-build problems here; report
-> product bugs upstream.
+> Not affiliated with the Astra Gate project. Report portable-build problems
+> [here](https://github.com/BobH-Official/Astra-Gate-Portable/issues); report product bugs
+> upstream.
 
 ## Download and run
 
 Download the latest `Astra-<version>-win32-x64-portable.zip` and its `.sha256` file from
-the [latest release](../../releases/latest) page.
+the [latest release](https://github.com/BobH-Official/Astra-Gate-Portable/releases/latest)
+page.
 
 1. Verify the SHA-256 (see below).
 2. Unpack the ZIP anywhere.
@@ -84,7 +87,9 @@ portable-<upstream tag>    # e.g. portable-v0.14.3100
 ```
 
 Preview versions are marked as prereleases and are not built automatically. Scheduled
-builds target `win-x64`; `win-arm64` builds are available manually.
+builds target `win-x64`; `win-arm64` builds are available manually. An existing release is
+skipped only when it already contains the expected ZIP and `.sha256` asset for the
+requested RID; otherwise the build runs and the release assets are updated.
 
 ## Build from source
 

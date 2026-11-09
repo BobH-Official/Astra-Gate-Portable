@@ -100,14 +100,23 @@ Commit separation:
 
 Do not squash wrapper changes into the PR-able commit. If a change spans both, split it.
 
+## CI triggers
+
+- `portable-ci.yml` runs on `pull_request` and on `push` to `master`, path-filtered to
+  `scripts/**`, `wrapper/**`, `.mise.toml`, `UPSTREAM` and both workflow files. It also
+  has `workflow_dispatch` with an optional `tag` input.
+- `portable-release.yml` runs on the `schedule` `23 */6 * * *` and on
+  `workflow_dispatch` with `tag`, `rid` and `force` inputs. It has no push trigger.
+
 ## CI and release behavior
 
 - `portable-ci.yml` is path-filtered to wrapper files, builds the latest stable upstream
   on `windows-latest`, and uploads an artifact. It never publishes a release.
 - `portable-release.yml` runs every six hours and on manual dispatch. It resolves the
-  latest stable tag (or an input tag), skips when `portable-<tag>` already exists unless
-  `force` is set, builds, then creates or updates the release with the ZIP, SHA-256 and
-  `build-info.json`.
+  latest stable tag (or an input tag), checks the release assets for the requested RID, and
+  skips only when the expected `Astra-<version>-win32-<arch>-portable.zip` and its
+  `.sha256` are already present. Otherwise it builds and creates or updates the release
+  with the ZIP, SHA-256 and `build-info.json`. `force` bypasses the asset check.
 - Manual dispatch inputs are `tag` (empty = latest stable), `rid` (`win-x64` or
   `win-arm64`) and `force` (rebuild an existing release). Preview tags are not discovered
   automatically; dispatch with the preview tag.

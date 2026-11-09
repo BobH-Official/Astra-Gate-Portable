@@ -18,6 +18,7 @@
 
 *Astra Gate*（上游 `239573049/Astra-Gate`）的非官方 Windows 便携版构建。
 
+- 仓库：`BobH-Official/Astra-Gate-Portable`（https://github.com/BobH-Official/Astra-Gate-Portable）
 - 上游：`239573049/Astra-Gate`（https://github.com/239573049/Astra-Gate）
 - 许可证：MIT，与上游同一许可证条款
 - 平台：Windows x64；ARM64 构建可手动生成
@@ -26,12 +27,15 @@
 本仓库不包含 Astra Gate 源码。每次发布都从上游 release tag 构建：浅克隆该 tag，
 叠加打包脚本，然后执行上游的构建命令。详见“构建流程”。
 
-> 非官方构建。便携版本身的问题请在本仓库反馈；产品问题请找上游。
+> 非官方构建。便携版本身的问题请到
+> #link("https://github.com/BobH-Official/Astra-Gate-Portable/issues")[本仓库 Issues]
+> 反馈；产品问题请找上游。
 
 = 下载与运行
 
-从本仓库的 Releases 页面下载最新的
-`Astra-<version>-win32-x64-portable.zip` 和对应的 `.sha256` 文件。
+从
+#link("https://github.com/BobH-Official/Astra-Gate-Portable/releases/latest")[最新 Release]
+下载 `Astra-<version>-win32-x64-portable.zip` 和对应的 `.sha256` 文件。
 
 + 校验 SHA-256（见下文）。
 + 解压到任意目录。
@@ -92,7 +96,8 @@ portable-<upstream tag>    # 例如 portable-v0.14.3100
 ```
 
 预览版会标记为 prerelease，不会自动构建。定时构建针对 `win-x64`；`win-arm64` 构建
-需要手动生成。
+需要手动生成。已有 Release 只有在包含目标 RID 对应的 ZIP 和 `.sha256` 资产时才会
+跳过；否则会重新构建并更新 Release 资产。
 
 = 从源码构建
 

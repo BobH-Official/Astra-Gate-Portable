@@ -53,6 +53,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GITHUB_TOKEN: ${{ github.token }}
           INPUT_TAG: ${{ github.event.inputs.tag }}
+          INPUT_RID: ${{ github.event.inputs.rid || 'win-x64' }}
           INPUT_FORCE: ${{ github.event.inputs.force }}
         run: |
           set -euo pipefail
@@ -72,12 +73,30 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          if [ "${INPUT_FORCE:-}" != "true" ] && gh release view "portable-$tag" >/dev/null 2>&1; then
-            echo "Portable release portable-$tag already exists; skipping."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
+          rid="${INPUT_RID:-win-x64}"
+          case "$rid" in
+            win-x64) arch=x64 ;;
+            win-arm64) arch=arm64 ;;
+            *)
+              echo "::error::Unsupported rid: $rid"
+              exit 1
+              ;;
+          esac
+          asset="Astra-$version-win32-$arch-portable.zip"
+          asset_sha="$asset.sha256"
+          assets=""
+          if [ "${INPUT_FORCE:-}" != "true" ]; then
+            assets=$(gh release view "portable-$tag" --json assets --jq '.assets[].name' 2>/dev/null || true)
+            if grep -Fxq "$asset" <<< "$assets" && grep -Fxq "$asset_sha" <<< "$assets"; then
+              echo "Release portable-$tag already contains $asset and $asset_sha; skipping."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [ -n "$assets" ]; then
+              echo "Release portable-$tag exists but is missing $asset or $asset_sha; rebuilding."
+            fi
           fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build ${{ github.event.inputs.rid || 'win-x64' }}
