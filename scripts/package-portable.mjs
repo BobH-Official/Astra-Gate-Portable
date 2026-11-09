@@ -83,6 +83,12 @@ for (const entry of fs.readdirSync(desktopPublish, { withFileTypes: true })) {
 fs.chmodSync(path.join(stage, 'Astra.exe'), 0o755);
 fs.cpSync(packedServer, path.join(stage, 'resources', 'server'), { recursive: true, verbatimSymlinks: true });
 
+const license = path.join(root, 'LICENSE');
+if (!fs.existsSync(license)) fail(`License file not found in the upstream checkout: ${license}`);
+fs.copyFileSync(license, path.join(stage, 'LICENSE'));
+const thirdPartyNotices = path.join(root, 'THIRD_PARTY_NOTICES.md');
+if (fs.existsSync(thirdPartyNotices)) fs.copyFileSync(thirdPartyNotices, path.join(stage, 'THIRD_PARTY_NOTICES.md'));
+
 function filesUnder(dir, base = dir) {
   const files = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -94,7 +100,7 @@ function filesUnder(dir, base = dir) {
 }
 
 function assertLayout(dir) {
-  for (const relative of ['Astra.exe', 'resources/server/astra-server.exe', 'resources/server/wwwroot/index.html']) {
+  for (const relative of ['Astra.exe', 'LICENSE', 'resources/server/astra-server.exe', 'resources/server/wwwroot/index.html']) {
     if (!fs.existsSync(path.join(dir, ...relative.split('/')))) fail(`Packaged file is missing: ${relative}`);
   }
   if (!fs.existsSync(path.join(dir, 'resources', 'server', 'e_sqlite3.dll'))) {
