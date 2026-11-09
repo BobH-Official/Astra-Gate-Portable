@@ -131,20 +131,22 @@ Do not squash wrapper changes into the PR-able commit. If a change spans both, s
   `scripts/**`, `wrapper/**`, `.mise.toml`, `UPSTREAM` and both workflow files. It also
   has `workflow_dispatch` with an optional `tag` input.
 - `portable-release.yml` runs on the `schedule` `23 */6 * * *` and on
-  `workflow_dispatch` with `tag`, `rid` and `force` inputs. It has no push trigger.
+  `workflow_dispatch` with `tag`, `rid` and `force` inputs. `rid` is `win-x64`,
+  `win-arm64`, or `both`. It has no push trigger.
 
 ## CI and release behavior
 
 - `portable-ci.yml` is path-filtered to wrapper files, builds the latest stable upstream
   on `windows-latest`, and uploads an artifact. It never publishes a release.
 - `portable-release.yml` runs every six hours and on manual dispatch. It resolves the
-  latest stable tag (or an input tag), checks the release assets for the requested RID, and
-  skips only when the expected `Astra-<version>-win32-<arch>-portable.zip` and its
-  `.sha256` are already present. Otherwise it builds and creates or updates the release
-  with the ZIP, SHA-256 and `build-info.json`. `force` bypasses the asset check.
-- Manual dispatch inputs are `tag` (empty = latest stable), `rid` (`win-x64` or
-  `win-arm64`) and `force` (rebuild an existing release). Preview tags are not discovered
-  automatically; dispatch with the preview tag.
+  latest stable tag (or an input tag), checks the release assets for the requested RID or
+  RIDs, and skips only when every expected
+  `Astra-<version>-win32-<arch>-portable.zip` and its `.sha256` are already present.
+  Otherwise it builds the requested set and creates or updates the release with the ZIPs,
+  SHA-256 files and `build-info-<rid>.json` files. `force` bypasses the asset check.
+- Manual dispatch inputs are `tag` (empty = latest stable), `rid` (`win-x64`,
+  `win-arm64`, or `both`) and `force` (rebuild an existing release). Preview tags are not
+  discovered automatically; dispatch with the preview tag.
 - Every release must include the `.sha256` asset; the release job verifies it with
   `sha256sum -c` before publishing and repeats the hash plus the Scoop `hash.url` in the
   release notes. Do not remove it: Scoop and manual verification use it.
@@ -153,10 +155,11 @@ Do not squash wrapper changes into the PR-able commit. If a change spans both, s
 - The release job copies `wrapper/scoop/*.ps1` into `dist`, writes a `.sha256` for each
   script, verifies every checksum, and uploads the optional Scoop Notes helpers next to
   the ZIP. They must stay outside the ZIP.
-- The release asset check covers the expected ZIP and its `.sha256`. If a release predates
-  the optional Scoop Notes helpers, rebuild with `force` or upload the helpers manually.
-- The scheduled build uses `win-x64`. `win-arm64` is manual-only and requires the
-  `windows-11-arm` runner.
+- The release asset check covers the expected ZIPs and their `.sha256` assets. If a
+  release predates the optional Scoop Notes helpers, rebuild with `force` or upload the
+  helpers manually.
+- The scheduled build uses `win-x64`. `win-arm64` and `both` are manual-only and require
+  the `windows-11-arm` runner.
 - Scheduled workflows run only on the default branch. GitHub may disable a schedule after
   60 days without repository activity; re-enable it if needed.
 

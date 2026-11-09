@@ -8,7 +8,7 @@ Unofficial, unpack-and-run Windows builds of
 | Repository | [BobH-Official/Astra-Gate-Portable](https://github.com/BobH-Official/Astra-Gate-Portable) |
 | Upstream | [239573049/Astra-Gate](https://github.com/239573049/Astra-Gate) |
 | License | [MIT](LICENSE), same terms as upstream |
-| Platform | Windows x64; ARM64 builds are available manually |
+| Platform | Windows x64 and ARM64; manual dispatch can build either or both |
 | Scope | Unofficial portable packaging; this repository is not a source fork |
 
 This repository does not contain Astra Gate source code. Each release is built from an
@@ -45,10 +45,13 @@ The ZIP contains:
 Each release also publishes:
 
 - `Astra-<version>-win32-<arch>-portable.zip.sha256`
-- `build-info.json` — upstream tag, RID, size, SHA-256, and build run.
+- `build-info-<rid>.json` — upstream tag, RID, size, SHA-256, and build run.
 - `scoop-register-protocol.ps1` and `scoop-unregister-protocol.ps1` (plus their
   `.sha256` files) as optional Scoop Notes helpers. These are release assets, not files
   inside the ZIP.
+
+The local build writes `build-info.json` inside each `out/portable/<rid>/` directory; the
+release workflow uploads it as `build-info-<rid>.json`.
 
 ## Truly portable data
 
@@ -152,9 +155,10 @@ portable-<upstream tag>    # e.g. portable-v0.14.3100
 ```
 
 Preview versions are marked as prereleases and are not built automatically. Scheduled
-builds target `win-x64`; `win-arm64` builds are available manually. An existing release is
-skipped only when it already contains the expected ZIP and `.sha256` asset for the
-requested RID; otherwise the build runs and the release assets are updated.
+builds target `win-x64`. Manual dispatch can build `win-x64`, `win-arm64`, or `both`;
+ARM64 and `both` require the `windows-11-arm` runner. An existing release is skipped only
+when it already contains the expected ZIP and `.sha256` assets for every requested RID;
+otherwise the requested set is rebuilt and the release assets are updated.
 
 ## Build from source
 

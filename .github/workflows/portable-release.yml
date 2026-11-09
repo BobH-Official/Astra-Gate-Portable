@@ -8,13 +8,14 @@ on:
         required: false
         type: string
       rid:
-        description: 'Windows RID'
+        description: 'Windows RID (win-x64, win-arm64, or both)'
         required: true
         default: win-x64
         type: choice
         options:
           - win-x64
           - win-arm64
+          - both
       force:
         description: 'Rebuild even if a portable release for this tag already exists'
         required: false
@@ -38,6 +39,7 @@ jobs:
       tag: ${{ steps.resolve.outputs.tag }}
       version: ${{ steps.resolve.outputs.version }}
       skip: ${{ steps.resolve.outputs.skip }}
+      rids: ${{ steps.resolve.outputs.rids }}
     steps:
       - uses: actions/checkout@v7
 
@@ -73,36 +75,59 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          rid="${INPUT_RID:-win-x64}"
-          case "$rid" in
-            win-x64) arch=x64 ;;
-            win-arm64) arch=arm64 ;;
+          requested="${INPUT_RID:-win-x64}"
+          case "$requested" in
+            both)
+              rids=(win-x64 win-arm64)
+              rids_json='["win-x64","win-arm64"]'
+              ;;
+            win-x64)
+              rids=(win-x64)
+              rids_json='["win-x64"]'
+              ;;
+            win-arm64)
+              rids=(win-arm64)
+              rids_json='["win-arm64"]'
+              ;;
             *)
-              echo "::error::Unsupported rid: $rid"
+              echo "::error::Unsupported rid: $requested"
               exit 1
               ;;
           esac
-          asset="Astra-$version-win32-$arch-portable.zip"
-          asset_sha="$asset.sha256"
           assets=""
           if [ "${INPUT_FORCE:-}" != "true" ]; then
             assets=$(gh release view "portable-$tag" --json assets --jq '.assets[].name' 2>/dev/null || true)
-            if grep -Fxq "$asset" <<< "$assets" && grep -Fxq "$asset_sha" <<< "$assets"; then
-              echo "Release portable-$tag already contains $asset and $asset_sha; skipping."
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            if [ -n "$assets" ]; then
-              echo "Release portable-$tag exists but is missing $asset or $asset_sha; rebuilding."
-            fi
           fi
+          need_build=false
+          for rid in "${rids[@]}"; do
+            case "$rid" in
+              win-x64) arch=x64 ;;
+              win-arm64) arch=arm64 ;;
+            esac
+            asset="Astra-$version-win32-$arch-portable.zip"
+            asset_sha="$asset.sha256"
+            if [ "${INPUT_FORCE:-}" = "true" ] || ! grep -Fxq "$asset" <<< "$assets" || ! grep -Fxq "$asset_sha" <<< "$assets"; then
+              need_build=true
+            fi
+          done
+          echo "rids=$rids_json" >> "$GITHUB_OUTPUT"
+          if [ "$need_build" = false ]; then
+            echo "Release portable-$tag already contains the requested assets; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Release portable-$tag is missing one or more requested assets; rebuilding $rids_json."
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
   build:
-    name: Build ${{ github.event.inputs.rid || 'win-x64' }}
+    name: Build ${{ matrix.rid }}
     needs: resolve
     if: needs.resolve.outputs.skip != 'true'
-    runs-on: ${{ github.event.inputs.rid == 'win-arm64' && 'windows-11-arm' || 'windows-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: ${{ fromJSON(needs.resolve.outputs.rids) }}
+    runs-on: ${{ matrix.rid == 'win-arm64' && 'windows-11-arm' || 'windows-latest' }}
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
@@ -172,19 +197,27 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          RID: ${{ github.event.inputs.rid || 'win-x64' }}
+          RID: ${{ matrix.rid }}
           TAG: ${{ needs.resolve.outputs.tag }}
         run: |
           set -euo pipefail
           node wrapper/build-portable.mjs --tag "$TAG" --rid "$RID"
 
+      - name: Name build info per RID
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in out/portable/*/build-info.json; do
+            mv "$file" "${file%.json}-${{ matrix.rid }}.json"
+          done
+
       - uses: actions/upload-artifact@v7
         with:
-          name: astra-portable-${{ needs.resolve.outputs.version }}-${{ github.event.inputs.rid || 'win-x64' }}
+          name: astra-portable-${{ needs.resolve.outputs.version }}-${{ matrix.rid }}
           path: |
             out/portable/*/*.zip
             out/portable/*/*.sha256
-            out/portable/*/build-info.json
+            out/portable/*/build-info-*.json
           if-no-files-found: error
           retention-days: 7
 
@@ -239,7 +272,7 @@ jobs:
             echo "- Upstream release: https://github.com/$(cat UPSTREAM)/releases/tag/$TAG"
             echo "- Build run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             echo "- Wrapper commit: ${{ github.sha }}"
-            echo "- Assets: unpack-and-run ZIP and its SHA-256. No installer and no admin rights."
+            echo "- Assets: unpack-and-run ZIPs and their SHA-256 files. No installer and no admin rights."
             echo "- Scoop Notes helpers: scoop-register-protocol.ps1 and scoop-unregister-protocol.ps1 (with .sha256)."
             for zip in dist/*.zip; do
               base=$(basename "$zip")

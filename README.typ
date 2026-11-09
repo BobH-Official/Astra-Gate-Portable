@@ -21,7 +21,7 @@
 - 仓库：`BobH-Official/Astra-Gate-Portable`（https://github.com/BobH-Official/Astra-Gate-Portable）
 - 上游：`239573049/Astra-Gate`（https://github.com/239573049/Astra-Gate）
 - 许可证：MIT，与上游同一许可证条款
-- 平台：Windows x64；ARM64 构建可手动生成
+- 平台：Windows x64 和 ARM64；手动触发可以构建其一或两者
 - 性质：非官方便携打包；本仓库不是源码 fork
 
 本仓库不包含 Astra Gate 源码。每次发布都从上游 release tag 构建：浅克隆该 tag，
@@ -56,9 +56,12 @@ ZIP 包含：
 每次 Release 还提供：
 
 - `Astra-<version>-win32-<arch>-portable.zip.sha256`
-- `build-info.json`：上游 tag、RID、大小、SHA-256 和构建记录。
+- `build-info-<rid>.json`：上游 tag、RID、大小、SHA-256 和构建记录。
 - `scoop-register-protocol.ps1`、`scoop-unregister-protocol.ps1` 及其 `.sha256`，作为
   可选的 Scoop Notes helper。这些是 Release 资产，不在 ZIP 内。
+
+本地构建在 `out/portable/<rid>/` 下写 `build-info.json`；release workflow 上传时命名为
+`build-info-<rid>.json`。
 
 = 真正的 portable 数据
 
@@ -161,9 +164,10 @@ ARM64 资产按需调整 manifest 的 URL。
 portable-<upstream tag>    # 例如 portable-v0.14.3100
 ```
 
-预览版会标记为 prerelease，不会自动构建。定时构建针对 `win-x64`；`win-arm64` 构建
-需要手动生成。已有 Release 只有在包含目标 RID 对应的 ZIP 和 `.sha256` 资产时才会
-跳过；否则会重新构建并更新 Release 资产。
+预览版会标记为 prerelease，不会自动构建。定时构建针对 `win-x64`；手动触发可以
+构建 `win-x64`、`win-arm64` 或 `both`，其中 ARM64 和 `both` 需要 `windows-11-arm`
+runner。已有 Release 只有在包含所有目标 RID 的 ZIP 和 `.sha256` 资产时才会跳过；
+否则会重新构建请求的集合并更新 Release 资产。
 
 = 从源码构建
 
