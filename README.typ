@@ -39,12 +39,16 @@
 
 = 仓库结构
 
+只有 `scripts/package-portable.mjs` 使用与上游完全一致的路径；`scripts/` 目录可以
+原样复制或合并进上游 checkout，不需要改路径。其余脚本都放在 `wrapper/`，刻意位于
+上游目录树之外。
+
 #doc-table(
   (auto, 1fr, auto),
   ([路径], [用途], [可提交上游？]),
   [scripts/package-portable.mjs], [在完整上游 checkout 内生成便携 ZIP 的脚本。], [是],
-  [scripts/build-portable.mjs], [Wrapper 专用编排：解析 tag、克隆、叠加脚本和补丁、构建、打包。], [否],
-  [scripts/latest-upstream-tag.mjs], [通过 GitHub API 读取最新稳定版 tag。], [否],
+  [wrapper/build-portable.mjs], [Wrapper 专用编排：解析 tag、克隆、叠加脚本和补丁、构建、打包。], [否],
+  [wrapper/latest-upstream-tag.mjs], [通过 GitHub API 读取最新稳定版 tag。], [否],
   [.mise.toml], [工具版本和本地任务。], [否],
   [.github/workflows/portable-ci.yml], [PR/push 构建验证，不发布 Release。], [否],
   [.github/workflows/portable-release.yml], [定时/手动检查上游、构建并发布 Release。], [否],
@@ -95,23 +99,23 @@ mise run portable
 不使用 mise：
 
 ```powershell
-node scripts/build-portable.mjs --tag v0.14.3100 --rid win-x64
-node scripts/build-portable.mjs --tag v0.14.3100 --rid win-arm64
+node wrapper/build-portable.mjs --tag v0.14.3100 --rid win-x64
+node wrapper/build-portable.mjs --tag v0.14.3100 --rid win-arm64
 ```
 
 常用检查：
 
 ```powershell
 # 只克隆、叠加、校验，不执行重构建
-node scripts/build-portable.mjs --tag v0.14.3100 --prepare-only
+node wrapper/build-portable.mjs --tag v0.14.3100 --prepare-only
 
 # 查看最新稳定版 tag
-node scripts/latest-upstream-tag.mjs
+node wrapper/latest-upstream-tag.mjs
 
 # 校验 mise 任务和脚本语法
 mise tasks validate
-node --check scripts/build-portable.mjs
-node --check scripts/latest-upstream-tag.mjs
+node --check wrapper/build-portable.mjs
+node --check wrapper/latest-upstream-tag.mjs
 node --check scripts/package-portable.mjs
 ```
 
@@ -120,7 +124,7 @@ Windows Native AOT 发布和 ZIP 步骤依赖 Windows 工具链。
 
 = CI 与自动发布
 
-`Portable CI` 在 PR 和 `main` push 且命中 wrapper 文件时运行，构建最新稳定版并上传
+`Portable CI` 在 PR 和 `master` push 且命中 wrapper 文件时运行，构建最新稳定版并上传
 workflow artifact，不创建 Release。
 
 `Portable release` 有两种触发方式：
@@ -138,6 +142,20 @@ portable-<tag>    # 例如 portable-v0.14.3100
 附上 ZIP、`.sha256` 和 `build-info.json`。预览版会标记为 prerelease。定时构建默认
 `win-x64`；`win-arm64` 需要手动触发，并依赖 `windows-11-arm` runner。
 
+== Scoop 与校验和
+
+每个 Release 都上传 `Astra-<version>-win32-<arch>-portable.zip.sha256`，格式为标准
+`<sha256>  <filename>`。release workflow 在发布前用 `sha256sum -c` 校验，并把 hash
+写进 Release notes。Scoop manifest 可以把 autoupdate 的 hash 指向该文件：
+
+```json
+"hash": {
+  "url": "$url.sha256"
+}
+```
+
+因为 release asset 就是 `<zip>.sha256`。ARM 构建按需调整 manifest 的 URL。
+
 == 为什么不用 `on: release`
 
 GitHub Actions 的 `release` 事件只在发布 Release 的那个仓库里触发。Wrapper 仓库
@@ -149,7 +167,7 @@ GitHub Actions 的 `release` 事件只在发布 Release 的那个仓库里触发
   同意，这是延迟最低的方案。
 + *Webhook / GitHub App / RSS 桥接*：需要额外服务托管和维护。
 
-定时 workflow 只在默认分支上运行。请把 `main` 推到 GitHub 并设为默认分支，自动发布
+定时 workflow 只在默认分支上运行。请把 `master` 推到 GitHub 并设为默认分支，自动发布
 才会生效。
 
 = PR 部分和 wrapper 部分怎么分开
@@ -189,7 +207,7 @@ commit；`CODEOWNERS`、路径过滤和必需检查只影响 review 和 CI，不
 - 预览版（版本号含 `-preview.N`）标记为 prerelease。
 - Release 由 workflow 使用 `GITHUB_TOKEN` 创建；仓库的 Actions 权限需要允许
   `contents: write`（workflow 已在 release job 里声明）。
-- 定时任务只在默认分支运行；先把 `main` 设为默认分支。
+- 定时任务只在默认分支运行；先把 `master` 设为默认分支。
 
 = 限制
 
@@ -200,12 +218,3 @@ commit；`CODEOWNERS`、路径过滤和必需检查只影响 review 和 CI，不
 - GitHub 可能在仓库 60 天无活动后停用定时 workflow；如果定时任务停了，到 Actions 页面
   重新启用。
 - 构建较重（大约 30–60 分钟），因为要构建两个 Native AOT 二进制。
-
-= 上手清单
-
-+ 创建 GitHub 仓库并推送 `main` bookmark。
-+ 把 `main` 设为默认分支，启用 Actions。
-+ 如果仓库策略限制默认 token，允许读写 workflow 权限，或依赖 release job 的
-  `contents: write`。
-+ 手动运行一次 `Portable release` 验证完整路径。
-+ 可选：向上游开 issue，讨论接收 `scripts/package-portable.mjs`。

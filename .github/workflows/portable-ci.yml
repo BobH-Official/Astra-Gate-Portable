@@ -4,14 +4,16 @@ on:
   pull_request:
     paths:
       - 'scripts/**'
+      - 'wrapper/**'
       - '.mise.toml'
       - 'UPSTREAM'
       - '.github/workflows/portable-ci.yml'
       - '.github/workflows/portable-release.yml'
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'scripts/**'
+      - 'wrapper/**'
       - '.mise.toml'
       - 'UPSTREAM'
       - '.github/workflows/portable-ci.yml'
@@ -65,8 +67,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node --check scripts/build-portable.mjs
-          node --check scripts/latest-upstream-tag.mjs
+          node --check wrapper/build-portable.mjs
+          node --check wrapper/latest-upstream-tag.mjs
           node --check scripts/package-portable.mjs
 
       - name: Build portable ZIP
@@ -78,7 +80,7 @@ jobs:
           set -euo pipefail
           args=()
           if [ -n "${INPUT_TAG:-}" ]; then args+=(--tag "$INPUT_TAG"); fi
-          node scripts/build-portable.mjs "${args[@]}"
+          node wrapper/build-portable.mjs "${args[@]}"
 
       - uses: actions/upload-artifact@v4
         with:

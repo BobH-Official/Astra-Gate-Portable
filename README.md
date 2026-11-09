@@ -26,13 +26,17 @@ SHA-256 before running.
 
 ## Repository layout
 
+Only `scripts/package-portable.mjs` mirrors an upstream path exactly. The `scripts/`
+directory can therefore be copied or merged into an upstream checkout without path
+translation. Everything under `wrapper/` is intentionally outside upstream's tree.
+
 | Path | Purpose | Upstream PR? |
 | --- | --- | --- |
 | `scripts/package-portable.mjs` | Builds the portable ZIP from an upstream checkout. Self-contained and intended to be PR-able. | Yes |
-| `scripts/build-portable.mjs` | Wrapper-only orchestrator: resolves the tag, clones upstream, overlays scripts/patches, builds, packages. | No |
-| `scripts/latest-upstream-tag.mjs` | Reads the latest stable upstream release tag from the GitHub API. | No |
+| `wrapper/build-portable.mjs` | Wrapper-only orchestrator: resolves the tag, clones upstream, overlays scripts/patches, builds, packages. | No |
+| `wrapper/latest-upstream-tag.mjs` | Reads the latest stable upstream release tag from the GitHub API. | No |
 | `.mise.toml` | Tool versions and local tasks. | No |
-| `.github/workflows/portable-ci.yml` | Builds on pull requests and pushes to `main`; no release. | No |
+| `.github/workflows/portable-ci.yml` | Builds on pull requests and pushes to `master`; no release. | No |
 | `.github/workflows/portable-release.yml` | Scheduled/manual upstream check, build and GitHub release. | No |
 | `UPSTREAM` | One line: `owner/repo` of the upstream project. | No |
 | `patches/` | Optional source patches. Not created until a patch is actually needed. | No |
@@ -85,23 +89,23 @@ mise run portable
 Without mise:
 
 ```powershell
-node scripts/build-portable.mjs --tag v0.14.3100 --rid win-x64
-node scripts/build-portable.mjs --tag v0.14.3100 --rid win-arm64
+node wrapper/build-portable.mjs --tag v0.14.3100 --rid win-x64
+node wrapper/build-portable.mjs --tag v0.14.3100 --rid win-arm64
 ```
 
 Useful checks:
 
 ```powershell
 # Clone, overlay, validate and stop before the heavy build.
-node scripts/build-portable.mjs --tag v0.14.3100 --prepare-only
+node wrapper/build-portable.mjs --tag v0.14.3100 --prepare-only
 
 # Print the latest stable upstream tag.
-node scripts/latest-upstream-tag.mjs
+node wrapper/latest-upstream-tag.mjs
 
 # Validate the mise configuration and script syntax.
 mise tasks validate
-node --check scripts/build-portable.mjs
-node --check scripts/latest-upstream-tag.mjs
+node --check wrapper/build-portable.mjs
+node --check wrapper/latest-upstream-tag.mjs
 node --check scripts/package-portable.mjs
 ```
 
@@ -110,7 +114,7 @@ the Windows Native AOT publish and the ZIP step use Windows tooling.
 
 ## Continuous integration and automatic releases
 
-`Portable CI` runs on pull requests and pushes to `main` that touch wrapper files. It
+`Portable CI` runs on pull requests and pushes to `master` that touch wrapper files. It
 builds the latest stable upstream and uploads the ZIP as a workflow artifact. It does not
 create a release.
 
@@ -131,6 +135,22 @@ and contain the ZIP, its `.sha256` file and `build-info.json`. Preview versions 
 as prereleases. The scheduled build covers `win-x64`; `win-arm64` is available through
 manual dispatch and requires access to the `windows-11-arm` runner.
 
+### Scoop and checksum verification
+
+Every release uploads `Astra-<version>-win32-<arch>-portable.zip.sha256` in the standard
+`<sha256>  <filename>` format. The release workflow verifies the checksum with
+`sha256sum -c` before publishing and repeats the hash in the release notes. A Scoop
+manifest can point its autoupdate hash at that asset:
+
+```json
+"hash": {
+  "url": "$url.sha256"
+}
+```
+
+This works because the release asset is exactly `<zip>.sha256`. Adjust the manifest URL
+for `arm64` if needed.
+
 ### Why polling instead of `on: release`
 
 A GitHub Actions `release` event only fires in the repository where the release is
@@ -144,7 +164,7 @@ release events. The practical options are:
    if they agree.
 3. **A webhook/GitHub App or RSS bridge**: an extra service to host and maintain.
 
-The schedule only runs on the repository's default branch. Push `main` and set it as the
+The schedule only runs on the repository's default branch. Push `master` and set it as the
 default branch before relying on automatic releases.
 
 ## Keeping the PR-able part separate
@@ -184,8 +204,8 @@ riskier than failing loudly.
 
 ## Repository setup checklist
 
-1. Create the GitHub repository and push the `main` bookmark.
-2. Set `main` as the default branch.
+1. Create the GitHub repository and push the `master` bookmark.
+2. Set `master` as the default branch.
 3. Enable Actions.
 4. If the repository policy restricts the default token, allow read/write workflow
    permissions, or rely on the job-level `contents: write` in the release workflow.

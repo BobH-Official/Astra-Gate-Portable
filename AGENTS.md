@@ -16,8 +16,10 @@ overlays wrapper files and optional patches, builds the app, and publishes a ZIP
 - `scripts/package-portable.mjs` is the only file intended for an upstream PR. It must
   stay runnable from a clean upstream checkout and must not import wrapper-only files or
   depend on this repository's workflows or mise tasks.
-- Wrapper-only files: `scripts/build-portable.mjs`, `scripts/latest-upstream-tag.mjs`,
-  `.github/workflows/**`, `.mise.toml`, `UPSTREAM`, `README.md`, `AGENTS.md`.
+- Only `scripts/package-portable.mjs` uses an upstream-relative path. Keep the `scripts/`
+  directory 1:1 with upstream; put every wrapper-only script under `wrapper/`.
+- Wrapper-only files: `wrapper/**`, `.github/workflows/**`, `.mise.toml`, `UPSTREAM`,
+  `README.md`, `AGENTS.md`.
 - Do not add `patches/` until a source patch is actually required.
 - Do not mix PR-able and wrapper-only changes in one commit.
 - Do not commit `.upstream/`, `out/`, build outputs, tokens or secrets.
@@ -26,11 +28,14 @@ overlays wrapper files and optional patches, builds the app, and publishes a ZIP
 
 ## Layout
 
+Only `scripts/package-portable.mjs` mirrors an upstream path exactly. Everything under
+`wrapper/` is intentionally outside upstream's tree.
+
 | Path | Purpose |
 | --- | --- |
 | `scripts/package-portable.mjs` | PR-able packaging script; runs inside an upstream checkout. |
-| `scripts/build-portable.mjs` | Wrapper-only orchestrator: tag resolution, clone, overlay, patches, build, package. |
-| `scripts/latest-upstream-tag.mjs` | Wrapper-only GitHub API helper. |
+| `wrapper/build-portable.mjs` | Wrapper-only orchestrator: tag resolution, clone, overlay, patches, build, package. |
+| `wrapper/latest-upstream-tag.mjs` | Wrapper-only GitHub API helper. |
 | `.mise.toml` | Tool versions and local tasks. |
 | `.github/workflows/portable-ci.yml` | PR/push build validation; no release. |
 | `.github/workflows/portable-release.yml` | Scheduled/manual build and GitHub release. |
@@ -46,8 +51,8 @@ Requirements: Windows for a full build; Git, PowerShell, Node.js 24, pnpm 9.15.0
 Fast checks:
 
 ```powershell
-node --check scripts/build-portable.mjs
-node --check scripts/latest-upstream-tag.mjs
+node --check wrapper/build-portable.mjs
+node --check wrapper/latest-upstream-tag.mjs
 node --check scripts/package-portable.mjs
 mise tasks validate
 ```
@@ -55,7 +60,7 @@ mise tasks validate
 Prepare-only check (clone, overlay, patch and version validation, no build):
 
 ```powershell
-node scripts/build-portable.mjs --tag v0.14.3100 --prepare-only
+node wrapper/build-portable.mjs --tag v0.14.3100 --prepare-only
 ```
 
 Full local build:
@@ -63,7 +68,7 @@ Full local build:
 ```powershell
 mise run portable -- --tag v0.14.3100
 # or
-node scripts/build-portable.mjs --tag v0.14.3100 --rid win-x64
+node wrapper/build-portable.mjs --tag v0.14.3100 --rid win-x64
 ```
 
 Full builds take roughly 30–60 minutes. Do not run one for documentation-only changes.
@@ -76,8 +81,8 @@ This checkout is a colocated jj/git repository. Use jj for repository state:
 jj status
 jj diff
 jj commit -m "..." [paths]
-jj bookmark set main -r @-
-jj git push --bookmark main   # only when a remote exists
+jj bookmark set master -r @-
+jj git push --bookmark master   # only when a remote exists
 ```
 
 Commit separation:
@@ -95,9 +100,11 @@ Do not squash wrapper changes into the PR-able commit. If a change spans both, s
   latest stable tag (or an input tag), skips when `portable-<tag>` already exists unless
   `force` is set, builds, then creates or updates the release with the ZIP, SHA-256 and
   `build-info.json`.
+- Every release must include the `.sha256` asset; the release job verifies it with
+  `sha256sum -c` before publishing. Do not remove it: Scoop and manual verification use it.
 - The scheduled build uses `win-x64`. `win-arm64` is manual-only and requires the
   `windows-11-arm` runner.
-- Scheduled workflows run only on the default branch. Push `main` and set it as default
+- Scheduled workflows run only on the default branch. Push `master` and set it as default
   before relying on the schedule. GitHub may disable a schedule after 60 days without
   repository activity; re-enable it in the Actions tab if needed.
 - GitHub cannot subscribe to another repository's release events. Polling the API is
@@ -108,7 +115,7 @@ Do not squash wrapper changes into the PR-able commit. If a change spans both, s
 - The build scripts read the upstream slug only from `UPSTREAM`.
 - If upstream changes `scripts/rid-map.mjs`, `scripts/pack-platform.mjs`, the desktop
   output layout or the release build commands, update `scripts/package-portable.mjs` and
-  `scripts/build-portable.mjs` together, then verify with `--prepare-only` and a full
+  `wrapper/build-portable.mjs` together, then verify with `--prepare-only` and a full
   Windows build.
 - If a source patch is needed, add `patches/NNNN-description.patch`. The orchestrator
   checks each patch with `git apply --check` and fails the build when it no longer

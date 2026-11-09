@@ -6,8 +6,8 @@ pnpm = "9.15.0"
 description = "Build an unofficial Windows portable ZIP from an upstream Astra-Gate release tag"
 lock = "astra-portable"
 timeout = "90m"
-run = "node scripts/build-portable.mjs"
+run = "node wrapper/build-portable.mjs"
 
 [tasks.check-upstream]
 description = "Print the latest stable upstream Astra-Gate release tag"
-run = "node scripts/latest-upstream-tag.mjs"
+run = "node wrapper/latest-upstream-tag.mjs"

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const usage = `Usage: node scripts/build-portable.mjs [options]
+const usage = `Usage: node wrapper/build-portable.mjs [options]
 
 Options:
   --tag <tag>        Upstream Astra-Gate release tag (default: latest stable release)
