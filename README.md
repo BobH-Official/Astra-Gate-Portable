@@ -3,6 +3,12 @@
 Unofficial, unpack-and-run Windows builds of
 [Astra Gate](https://github.com/239573049/Astra-Gate), maintained by BobH.
 
+| | |
+| --- | --- |
+| Upstream | [239573049/Astra-Gate](https://github.com/239573049/Astra-Gate) |
+| License | [MIT](LICENSE), same terms as upstream |
+| Scope | Unofficial Windows portable builds; this repository is not a source fork |
+
 This repository is a packaging wrapper, not a fork of the upstream source. It contains
 no Astra Gate source code. At build time it shallow-clones an upstream release tag,
 overlays the packaging script and optional patches, builds the Windows desktop app with
@@ -15,6 +21,8 @@ its bundled server, and publishes a portable ZIP.
 
 - `Astra.exe` — the Avalonia desktop app, Native AOT.
 - `resources/server/` — `astra-server.exe`, its native companions, and the web console.
+- `LICENSE` and `THIRD_PARTY_NOTICES.md` from the upstream tag, because the ZIP
+  redistributes upstream binaries.
 - No installer, no admin rights, no Node.js and no .NET runtime required.
 
 Unpack the ZIP anywhere and run `Astra.exe`. The application still uses upstream's data
@@ -39,8 +47,35 @@ translation. Everything under `wrapper/` is intentionally outside upstream's tre
 | `.github/workflows/portable-ci.yml` | Builds on pull requests and pushes to `master`; no release. | No |
 | `.github/workflows/portable-release.yml` | Scheduled/manual upstream check, build and GitHub release. | No |
 | `UPSTREAM` | One line: `owner/repo` of the upstream project. | No |
+| `LICENSE` | MIT license for this wrapper; same terms as upstream. | No |
 | `patches/` | Optional source patches. Not created until a patch is actually needed. | No |
 | `README.md`, `AGENTS.md` | Documentation. | No |
+
+## Files that can be pushed upstream 1:1
+
+Only one file is intended to be copied verbatim into an upstream checkout and proposed
+as a PR:
+
+| Local path | Upstream path | How to use |
+| --- | --- | --- |
+| `scripts/package-portable.mjs` | `scripts/package-portable.mjs` | Copy as-is, commit it alone, and open a PR against upstream `main`. |
+
+No other file is upstream-mergeable. In particular, `wrapper/**`, `.github/workflows/**`,
+`.mise.toml`, `UPSTREAM`, `README.md`, `AGENTS.md` and `LICENSE` are wrapper-only. The root
+`LICENSE` is the wrapper's copy; the ZIP carries the upstream license from the built tag.
+`scripts/package-portable.mjs` uses only upstream's existing `scripts/rid-map.mjs` and
+`scripts/pack-platform.mjs` and runs from a clean upstream checkout.
+
+Export it to a fork branch:
+
+```powershell
+git switch -c feat/portable-packaging upstream/main
+Copy-Item <path-to-this-repo>/scripts/package-portable.mjs scripts/package-portable.mjs
+git add scripts/package-portable.mjs
+git commit -m "feat: add portable packaging script"
+```
+
+The path in this repository is already the upstream path, so no translation is needed.
 
 ## How a build works
 
@@ -201,6 +236,37 @@ Do not create `patches/` preemptively. If a source change is needed:
 Patches are not rebased automatically. A failed scheduled build is the signal that a
 patch needs maintenance. This is intentional: silently auto-merging source patches is
 riskier than failing loudly.
+
+## License
+
+This repository uses the MIT license, the same terms as upstream Astra Gate. The root
+[`LICENSE`](LICENSE) names this wrapper's maintainer. The portable ZIP contains the
+upstream `LICENSE` (with the upstream copyright notice) and `THIRD_PARTY_NOTICES.md`,
+copied from the built tag by `scripts/package-portable.mjs` because the ZIP redistributes
+upstream binaries.
+
+Upstream: [239573049/Astra-Gate](https://github.com/239573049/Astra-Gate).
+
+## Suggested GitHub repository metadata
+
+Description:
+
+> Unofficial portable Windows builds of Astra Gate, packaged from upstream release tags.
+
+Topics: `astra-gate`, `portable`, `windows`, `unofficial`, `packaging`, `scoop`.
+
+Create the repository and set the metadata:
+
+```powershell
+gh repo create <owner>/BobH-Astra-Gate-Portable --public --source=. --remote=origin --push `
+  --description "Unofficial portable Windows builds of Astra Gate, packaged from upstream release tags."
+gh repo edit --description "Unofficial portable Windows builds of Astra Gate, packaged from upstream release tags." `
+  --add-topic astra-gate --add-topic portable --add-topic windows `
+  --add-topic unofficial --add-topic packaging --add-topic scoop
+```
+
+For an existing repository, run only the `gh repo edit` command. Release tags are
+created by the release workflow as `portable-v<upstream-version>`.
 
 ## Repository setup checklist
 

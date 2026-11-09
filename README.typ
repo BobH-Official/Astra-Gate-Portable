@@ -3,7 +3,7 @@
 
 #show: project-doc.with(
   title: "Astra Gate Portable version from BobH",
-  project: "BobH-Astra-Gate-Portable",
+  project: "Astra-Gate-Portable",
   subtitle: "README",
   kind: "Documentation",
   date: "2026-11-09",
@@ -18,6 +18,10 @@
 
 这是 *Astra Gate*（上游 `239573049/Astra-Gate`）的非官方 Windows 便携版打包仓库。
 
+- 上游：`239573049/Astra-Gate`（https://github.com/239573049/Astra-Gate）
+- 许可证：MIT，与上游同一许可证条款
+- 性质：非官方 Windows 便携构建；不是源码 fork
+
 它不是上游的源码 fork，也不保存上游源码。构建时按上游 release tag 浅克隆源码，
 把一个可以单独提交给上游的打包脚本叠加进去，再按需应用补丁，构建 Windows 桌面端
 和内置服务端，最后发布一个免安装的 ZIP。
@@ -30,6 +34,7 @@
 
 - `Astra.exe`：Avalonia 桌面端，Native AOT。
 - `resources/server/`：`astra-server.exe`、原生依赖和 Web 控制台。
+- 上游的 `LICENSE` 和 `THIRD_PARTY_NOTICES.md`，因为 ZIP 重新分发了上游二进制。
 - 不需要安装程序、管理员权限、Node.js 或 .NET 运行时。
 
 解压后直接运行 `Astra.exe`。默认数据目录仍是上游的 `%USERPROFILE%\.astra`；
@@ -54,8 +59,34 @@
   [.github/workflows/portable-release.yml], [定时/手动检查上游、构建并发布 Release。], [否],
   [UPSTREAM], [一行 `owner/repo`。], [否],
   [patches/], [可选的源码补丁；真正需要时才创建。], [否],
+  [LICENSE], [本 wrapper 的 MIT 许可证，条款与上游相同。], [否],
   [README.md, AGENTS.md], [文档。], [否],
 )
+
+= 可以直接 1:1 推向上游的代码
+
+目前只有一个文件可以作为 1:1 PR：
+
+#doc-table(
+  (auto, auto, 1fr),
+  ([本仓库路径], [上游路径], [用法]),
+  [scripts/package-portable.mjs], [scripts/package-portable.mjs], [原样复制；单独 commit；向上游 `main` 开 PR。],
+)
+
+其他文件都不能直接推向上游：`wrapper/**`、`.github/workflows/**`、`.mise.toml`、
+`UPSTREAM`、`README.md`、`AGENTS.md`、`LICENSE` 都是 wrapper-only。根目录 `LICENSE`
+是 wrapper 的许可证副本；ZIP 内的上游许可证来自构建时的上游 tag。
+
+导出到 fork 分支：
+
+```powershell
+git switch -c feat/portable-packaging upstream/main
+Copy-Item <本仓库路径>/scripts/package-portable.mjs scripts/package-portable.mjs
+git add scripts/package-portable.mjs
+git commit -m "feat: add portable packaging script"
+```
+
+本仓库中的路径已经是上游路径，不需要做路径转换。
 
 = 构建流程
 
@@ -199,6 +230,31 @@ commit；`CODEOWNERS`、路径过滤和必需检查只影响 review 和 CI，不
 
 补丁不会自动 rebase。定时构建失败就是需要维护补丁的信号；这比静默自动合并源码补丁
 更安全。
+
+= 许可证
+
+本仓库使用 MIT，许可证条款与上游 Astra Gate 相同。根目录 `LICENSE` 的版权行是
+本 wrapper 的维护者。便携 ZIP 内的 `LICENSE` 则是从所构建的上游 tag 复制的原始
+上游许可证（保留上游版权声明），并同时包含 `THIRD_PARTY_NOTICES.md`；ZIP 重新分发
+上游二进制，所以这些文件必须随包提供。
+
+上游：https://github.com/239573049/Astra-Gate
+
+= 建议的 GitHub 仓库元数据
+
+描述：
+
+> 非官方 Windows 便携版 Astra Gate，从上游 release tag 构建。
+
+Topics：`astra-gate`、`portable`、`windows`、`unofficial`、`packaging`、`scoop`。
+
+创建仓库后设置：
+
+```powershell
+gh repo edit --description "Unofficial portable Windows builds of Astra Gate, packaged from upstream release tags." `
+  --add-topic astra-gate --add-topic portable --add-topic windows `
+  --add-topic unofficial --add-topic packaging --add-topic scoop
+```
 
 = 发布与版本
 

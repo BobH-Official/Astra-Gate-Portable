@@ -13,14 +13,18 @@ overlays wrapper files and optional patches, builds the app, and publishes a ZIP
 
 - Never vendor or edit upstream source here. `.upstream/` is a disposable clone and is
   gitignored.
-- `scripts/package-portable.mjs` is the only file intended for an upstream PR. It must
-  stay runnable from a clean upstream checkout and must not import wrapper-only files or
-  depend on this repository's workflows or mise tasks.
+- `scripts/package-portable.mjs` is the only file that can be copied 1:1 to upstream (the
+  explicit list is in `README.md`). It must stay runnable from a clean upstream checkout
+  and must not import wrapper-only files or depend on this repository's workflows or mise
+  tasks.
 - Only `scripts/package-portable.mjs` uses an upstream-relative path. Keep the `scripts/`
   directory 1:1 with upstream; put every wrapper-only script under `wrapper/`.
 - Wrapper-only files: `wrapper/**`, `.github/workflows/**`, `.mise.toml`, `UPSTREAM`,
   `README.md`, `AGENTS.md`.
 - Do not add `patches/` until a source patch is actually required.
+- `LICENSE` is the wrapper's MIT license, using the same terms as upstream. Do not
+  replace it with a different license. The packaging script copies the upstream
+  `LICENSE` into the ZIP; keep that behavior.
 - Do not mix PR-able and wrapper-only changes in one commit.
 - Do not commit `.upstream/`, `out/`, build outputs, tokens or secrets.
 - Do not add wrapper-only paths to the packaging script. If the packaging script needs a
@@ -40,6 +44,7 @@ Only `scripts/package-portable.mjs` mirrors an upstream path exactly. Everything
 | `.github/workflows/portable-ci.yml` | PR/push build validation; no release. |
 | `.github/workflows/portable-release.yml` | Scheduled/manual build and GitHub release. |
 | `UPSTREAM` | One line: upstream `owner/repo`. |
+| `LICENSE` | MIT license for this wrapper; same terms as upstream. |
 | `patches/` | Optional source patches, applied in filename order. |
 
 ## Build and validation
@@ -102,6 +107,8 @@ Do not squash wrapper changes into the PR-able commit. If a change spans both, s
   `build-info.json`.
 - Every release must include the `.sha256` asset; the release job verifies it with
   `sha256sum -c` before publishing. Do not remove it: Scoop and manual verification use it.
+- The packaging script copies the upstream `LICENSE` and `THIRD_PARTY_NOTICES.md` into the
+  portable ZIP. Keep that behavior when changing the packaging script.
 - The scheduled build uses `win-x64`. `win-arm64` is manual-only and requires the
   `windows-11-arm` runner.
 - Scheduled workflows run only on the default branch. Push `master` and set it as default
