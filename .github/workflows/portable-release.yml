@@ -214,10 +214,13 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: astra-portable-${{ needs.resolve.outputs.version }}-${{ matrix.rid }}
+          # Keep the wildcard after the RID directory: upload-artifact preserves the
+          # hierarchy after the first wildcard, so out/portable/*/*.zip would store
+          # win-x64/... inside the artifact and leave dist/ nested after download.
           path: |
-            out/portable/*/*.zip
-            out/portable/*/*.sha256
-            out/portable/*/build-info-*.json
+            out/portable/${{ matrix.rid }}/*.zip
+            out/portable/${{ matrix.rid }}/*.sha256
+            out/portable/${{ matrix.rid }}/build-info-*.json
           if-no-files-found: error
           retention-days: 7
 
@@ -252,6 +255,13 @@ jobs:
         run: |
           set -euo pipefail
           cd dist
+          shopt -s nullglob
+          zips=(*.zip)
+          if [ ${#zips[@]} -eq 0 ]; then
+            echo "::error::No portable ZIP at the root of dist; check that the build artifacts are flat."
+            ls -la
+            exit 1
+          fi
           sha256sum -c ./*.sha256
 
       - name: Create or update the GitHub release
@@ -263,8 +273,16 @@ jobs:
           VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           set -euo pipefail
+          shopt -s nullglob
           release_tag="portable-$TAG"
           title="Astra Gate portable $VERSION (unofficial)"
+          zips=(dist/*.zip)
+          assets=(dist/*.zip dist/*.sha256 dist/*.json dist/*.ps1)
+          if [ ${#zips[@]} -eq 0 ] || [ ${#assets[@]} -eq 0 ]; then
+            echo "::error::No release assets found in dist."
+            ls -la dist
+            exit 1
+          fi
           notes=$(mktemp)
           {
             echo "Unofficial Windows portable build of Astra Gate $TAG."
@@ -274,7 +292,7 @@ jobs:
             echo "- Wrapper commit: ${{ github.sha }}"
             echo "- Assets: unpack-and-run ZIPs and their SHA-256 files. No installer and no admin rights."
             echo "- Scoop Notes helpers: scoop-register-protocol.ps1 and scoop-unregister-protocol.ps1 (with .sha256)."
-            for zip in dist/*.zip; do
+            for zip in "${zips[@]}"; do
               base=$(basename "$zip")
               echo "- $base SHA-256: $(sha256sum "$zip" | awk '{print $1}')"
               echo "  Scoop hash.url: ${{ github.server_url }}/${{ github.repository }}/releases/download/$release_tag/${base}.sha256"
@@ -285,7 +303,7 @@ jobs:
           if [[ "$VERSION" == *-preview.* ]]; then flags=(--prerelease); fi
           if gh release view "$release_tag" >/dev/null 2>&1; then
             gh release edit "$release_tag" --title "$title" --notes-file "$notes" "${flags[@]}"
-            gh release upload "$release_tag" dist/* --clobber
+            gh release upload "$release_tag" "${assets[@]}" --clobber
           else
-            gh release create "$release_tag" dist/* --target "$GITHUB_SHA" --title "$title" --notes-file "$notes" "${flags[@]}"
+            gh release create "$release_tag" "${assets[@]}" --target "$GITHUB_SHA" --title "$title" --notes-file "$notes" "${flags[@]}"
           fi
