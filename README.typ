@@ -57,6 +57,72 @@ ZIP 包含：
 
 - `Astra-<version>-win32-<arch>-portable.zip.sha256`
 - `build-info.json`：上游 tag、RID、大小、SHA-256 和构建记录。
+- `scoop-register-protocol.ps1`、`scoop-unregister-protocol.ps1` 及其 `.sha256`，作为
+  可选的 Scoop Notes helper。这些是 Release 资产，不在 ZIP 内。
+
+= 真正的 portable 数据
+
+Astra Gate 通过 `ASTRA_HOME` 决定数据目录。portable 构建不运行 NSIS 安装器，因此不会
+写入安装/卸载注册表项，也不会注册 `astra://` 协议（需要时可运行可选 helper）。
+
+把数据放到自选目录：
+
+```powershell
+$env:ASTRA_HOME = "D:\AstraGate\data"
+.\Astra.exe
+```
+
+持久化设置：
+
+```powershell
+[Environment]::SetEnvironmentVariable("ASTRA_HOME", "D:\AstraGate\data", "User")
+```
+
+应用会创建目录。`%USERPROFILE%\.astra` 里的旧数据不会自动迁移；需要时先停止 Astra
+再复制。
+
+Scoop manifest 里用 `env_set` 设置 `ASTRA_HOME`，和 `bun` 设置 `BUN_INSTALL` 一样；
+Scoop 会负责设置和移除：
+
+```json
+"env_set": {
+  "ASTRA_HOME": "$persist_dir\\data"
+}
+```
+
+portable 构建不需要安装 helper 来做这件事。
+
+== 注册表行为
+
+#doc-table(
+  (1fr, 1.4fr),
+  ([触发条件], [注册表写入]),
+  [正常运行 portable 应用], [无],
+  [运行 NSIS 安装器], [安装/卸载信息与 `astra://`；portable 构建不使用],
+  [开启 Desktop 的“登录时启动”], [`HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Astra`],
+  [开启 Server 的后台启动，或运行 `astra autostart enable`], [`HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Astra Server`],
+)
+
+只有用户主动开启这些设置时才会写 autostart 项。启动内置 Server 不会重写它们：
+应用启动时的刷新只管理 `ASTRA_HOME\server\astra-server-<version>` 下的 CLI 管理二进制，
+不管理 portable 的 `resources/server/astra-server.exe`。要移除 autostart 项，在应用里
+关闭对应设置，或对 Server 运行 `astra autostart disable`。
+
+== App 与外部脚本的分工
+
+#doc-table(
+  (1fr, 1fr),
+  ([事项], [由谁处理]),
+  [ASTRA_HOME 下的数据布局], [上游应用],
+  [选择 Scoop persist 目录并设置 ASTRA_HOME], [Scoop manifest 的 `env_set`（与 `bun` 相同）],
+  [autostart 项], [应用，仅在用户开启时],
+  [注册或移除 `astra://` join link], [可选的 `scoop-register-protocol.ps1` / `scoop-unregister-protocol.ps1`],
+  [NSIS 安装/卸载项], [portable 构建不写入],
+)
+
+可选协议 helper 是单独的 Release 资产，不在 ZIP 内。它们只注册或移除 `astra://`，
+不碰 `ASTRA_HOME`、autostart、用户数据或 NSIS 安装项。helper 在 Windows PowerShell 5.1
+和 PowerShell 7 上运行。
 
 = 校验下载
 

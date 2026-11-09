@@ -71,6 +71,36 @@ jobs:
           node --check wrapper/latest-upstream-tag.mjs
           node --check scripts/package-portable.mjs
 
+      - name: Check Scoop helpers (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          $failed = $false
+          foreach ($file in @('wrapper/scoop/scoop-register-protocol.ps1', 'wrapper/scoop/scoop-unregister-protocol.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error "${file}: $($_.Message)" }
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Check Scoop helpers (PowerShell 7)
+        shell: pwsh
+        run: |
+          $failed = $false
+          foreach ($file in @('wrapper/scoop/scoop-register-protocol.ps1', 'wrapper/scoop/scoop-unregister-protocol.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error "${file}: $($_.Message)" }
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+
       - name: Build portable ZIP
         shell: bash
         env:

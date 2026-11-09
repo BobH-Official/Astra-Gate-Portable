@@ -43,6 +43,8 @@ Only `scripts/package-portable.mjs` mirrors an upstream path exactly. Everything
 | `scripts/package-portable.mjs` | PR-able packaging script; runs inside an upstream checkout. |
 | `wrapper/build-portable.mjs` | Wrapper-only orchestrator: tag resolution, clone, overlay, patches, build, package. |
 | `wrapper/latest-upstream-tag.mjs` | Wrapper-only GitHub API helper. |
+| `wrapper/scoop/scoop-register-protocol.ps1` | Optional Notes helper: registers `astra://` for an app directory. |
+| `wrapper/scoop/scoop-unregister-protocol.ps1` | Optional Notes helper: removes the `astra://` registration, the reverse of the register script. |
 | `.mise.toml` | Tool versions and local tasks. |
 | `.github/workflows/portable-ci.yml` | PR/push build validation; no release. |
 | `.github/workflows/portable-release.yml` | Scheduled/manual build and GitHub release. |
@@ -80,6 +82,29 @@ node wrapper/build-portable.mjs --tag v0.14.3100 --rid win-x64
 ```
 
 Full builds take roughly 30–60 minutes. Do not run one for documentation-only changes.
+
+## Portable behavior
+
+- `ASTRA_HOME` is the only data redirection. The app creates the directory and keeps its
+  database, keys, logs and plugins there.
+- The portable build does not run the NSIS installer. It therefore does not create
+  install/uninstall keys or register `astra://` by default.
+- The app writes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Astra` only when the
+  user enables desktop login, and `...\Astra Server` only when the user enables server
+  autostart or runs `astra autostart enable`.
+- `AutostartService.RefreshAsync` only manages CLI-managed binaries under
+  `<ASTRA_HOME>\server\astra-server-<version>`. The portable server in
+  `resources/server/astra-server.exe` is not managed, so normal startup does not rewrite
+  registry entries.
+- Scoop manifests set `ASTRA_HOME` with `env_set`, the same way `bun` sets `BUN_INSTALL`:
+  `"ASTRA_HOME": "$persist_dir\\data"`. Scoop owns setting and removing that variable; do
+  not set it in the PS1 helpers.
+- `scoop-register-protocol.ps1` and `scoop-unregister-protocol.ps1` are optional Notes
+  helpers, not Scoop hooks. They only register or remove `astra://` for the app directory;
+  they do not touch `ASTRA_HOME`, autostart entries, user data, or NSIS keys. They must work
+  on Windows PowerShell 5.1 and PowerShell 7; CI parses them under both shells.
+- Autostart entries are controlled by the app: disable desktop login in Settings, or run
+  `astra autostart disable` for the server. Do not add source patches for registry cleanup.
 
 ## jj workflow
 
@@ -125,6 +150,11 @@ Do not squash wrapper changes into the PR-able commit. If a change spans both, s
   release notes. Do not remove it: Scoop and manual verification use it.
 - The packaging script copies the upstream `LICENSE` and `THIRD_PARTY_NOTICES.md` into the
   portable ZIP. Keep that behavior when changing the packaging script.
+- The release job copies `wrapper/scoop/*.ps1` into `dist`, writes a `.sha256` for each
+  script, verifies every checksum, and uploads the optional Scoop Notes helpers next to
+  the ZIP. They must stay outside the ZIP.
+- The release asset check covers the expected ZIP and its `.sha256`. If a release predates
+  the optional Scoop Notes helpers, rebuild with `force` or upload the helpers manually.
 - The scheduled build uses `win-x64`. `win-arm64` is manual-only and requires the
   `windows-11-arm` runner.
 - Scheduled workflows run only on the default branch. GitHub may disable a schedule after

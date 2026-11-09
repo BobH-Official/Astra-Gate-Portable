@@ -46,6 +46,71 @@ Each release also publishes:
 
 - `Astra-<version>-win32-<arch>-portable.zip.sha256`
 - `build-info.json` — upstream tag, RID, size, SHA-256, and build run.
+- `scoop-register-protocol.ps1` and `scoop-unregister-protocol.ps1` (plus their
+  `.sha256` files) as optional Scoop Notes helpers. These are release assets, not files
+  inside the ZIP.
+
+## Truly portable data
+
+Astra Gate reads its data directory from `ASTRA_HOME`. The portable build does not run
+the NSIS installer, so it does not create install/uninstall registry keys or register the
+`astra://` protocol.
+
+To keep data in a directory you choose:
+
+```powershell
+$env:ASTRA_HOME = "D:\AstraGate\data"
+.\Astra.exe
+```
+
+For future launches:
+
+```powershell
+[Environment]::SetEnvironmentVariable("ASTRA_HOME", "D:\AstraGate\data", "User")
+```
+
+The app creates the directory. Existing data in `%USERPROFILE%\.astra` is not moved
+automatically; stop Astra and copy it if needed.
+
+For a Scoop manifest, set `ASTRA_HOME` with `env_set`, the same way `bun` sets
+`BUN_INSTALL`; Scoop sets and removes the variable for you:
+
+```json
+"env_set": {
+  "ASTRA_HOME": "$persist_dir\\data"
+}
+```
+
+The portable build does not need an install helper for this.
+
+### Registry behavior
+
+| Trigger | Registry write |
+| --- | --- |
+| Running the portable app normally | None |
+| Running the NSIS installer | Install/uninstall keys and `astra://`; the portable build does not use it |
+| Enabling "Start Astra at login" | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Astra` |
+| Enabling the server's start-at-login setting or running `astra autostart enable` | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Astra Server` |
+
+The autostart entries are written only when the user enables those settings. Starting the
+bundled server does not rewrite them: the app's startup refresh only manages CLI-managed
+binaries under `ASTRA_HOME\server\astra-server-<version>`, not the portable
+`resources/server/astra-server.exe`. To remove an autostart entry, turn the setting off in
+the app or run `astra autostart disable` for the server.
+
+### App vs. external helper
+
+| Concern | Handled by |
+| --- | --- |
+| Data layout under `ASTRA_HOME` | Upstream app |
+| Choosing the Scoop persist directory and setting `ASTRA_HOME` | Scoop manifest `env_set` (like `bun`) |
+| Autostart entries | App, only when the user enables them |
+| Registering or removing `astra://` join links | Optional `scoop-register-protocol.ps1` / `scoop-unregister-protocol.ps1` |
+| NSIS install/uninstall keys | Not written by the portable build |
+
+The optional protocol helpers are separate release assets, not part of the ZIP. They only
+register or remove `astra://`; they do not touch `ASTRA_HOME`, autostart entries, user data,
+or NSIS keys. They run on Windows PowerShell 5.1 and PowerShell 7.
 
 ## Verify the download
 

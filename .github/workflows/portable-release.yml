@@ -138,6 +138,36 @@ jobs:
           node --check wrapper/latest-upstream-tag.mjs
           node --check scripts/package-portable.mjs
 
+      - name: Check Scoop helpers (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          $failed = $false
+          foreach ($file in @('wrapper/scoop/scoop-register-protocol.ps1', 'wrapper/scoop/scoop-unregister-protocol.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error "${file}: $($_.Message)" }
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Check Scoop helpers (PowerShell 7)
+        shell: pwsh
+        run: |
+          $failed = $false
+          foreach ($file in @('wrapper/scoop/scoop-register-protocol.ps1', 'wrapper/scoop/scoop-unregister-protocol.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error "${file}: $($_.Message)" }
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+
       - name: Build portable ZIP
         shell: bash
         env:
@@ -174,6 +204,16 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Stage Scoop helpers
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp wrapper/scoop/*.ps1 dist/
+          cd dist
+          for file in *.ps1; do
+            sha256sum "$file" > "$file.sha256"
+          done
+
       - name: Verify the SHA-256 asset
         shell: bash
         run: |
@@ -200,6 +240,7 @@ jobs:
             echo "- Build run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             echo "- Wrapper commit: ${{ github.sha }}"
             echo "- Assets: unpack-and-run ZIP and its SHA-256. No installer and no admin rights."
+            echo "- Scoop Notes helpers: scoop-register-protocol.ps1 and scoop-unregister-protocol.ps1 (with .sha256)."
             for zip in dist/*.zip; do
               base=$(basename "$zip")
               echo "- $base SHA-256: $(sha256sum "$zip" | awk '{print $1}')"
