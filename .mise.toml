@@ -1,0 +1,13 @@
+[tools]
+node = "24"
+pnpm = "9.15.0"
+
+[tasks.portable]
+description = "Build an unofficial Windows portable ZIP from an upstream Astra-Gate release tag"
+lock = "astra-portable"
+timeout = "90m"
+run = "node scripts/build-portable.mjs"
+
+[tasks.check-upstream]
+description = "Print the latest stable upstream Astra-Gate release tag"
+run = "node scripts/latest-upstream-tag.mjs"
