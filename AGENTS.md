@@ -43,6 +43,9 @@ Only `scripts/package-portable.mjs` mirrors an upstream path exactly. Everything
 | `scripts/package-portable.mjs` | PR-able packaging script; runs inside an upstream checkout. |
 | `wrapper/build-portable.mjs` | Wrapper-only orchestrator: tag resolution, clone, overlay, patches, build, package. |
 | `wrapper/latest-upstream-tag.mjs` | Wrapper-only GitHub API helper. |
+| `wrapper/upstream-toolchain.sh` | Prints the .NET SDK, pnpm and Node versions the target tag builds with. |
+| `wrapper/lib/toolchain-check.mjs` | Preflight that compares a checkout's pins with the installed tools; used by the orchestrator. |
+| `wrapper/lib/toolchain-check.test.mjs` | Unit tests for the preflight; run in CI. |
 | `wrapper/resolve-release.sh` | Wrapper-only planner: picks the tags/RIDs a run must build and the release that owns `latest`. |
 | `wrapper/lib/semver.sh` | Shared version ordering helpers (`semver_key`, `semver_valid`, `semver_is_stable`). |
 | `wrapper/publish-release.sh` | Wrapper-only release publisher: verifies and uploads assets, merges notes across partial runs. |
@@ -57,19 +60,51 @@ Only `scripts/package-portable.mjs` mirrors an upstream path exactly. Everything
 
 ## Build and validation
 
-Requirements: Windows for a full build; Git, PowerShell, Node.js 24, pnpm 9.15.0,
-.NET SDK `11.0.100-rc.3.26522.148`. `mise install` installs Node.js and pnpm; install the
-.NET SDK separately (upstream's `global.json` pins it).
+Requirements: Windows for a full build; Git, PowerShell, Node.js 24, pnpm 9.15.0, and the
+.NET SDK that the target tag pins in `global.json`. `mise install` installs Node.js and
+pnpm; install the .NET SDK separately.
+
+Upstream moves these pins between releases and records them in three places, so nothing in
+this repository may hardcode them:
+
+| Tool | Upstream source | Note |
+| --- | --- | --- |
+| .NET SDK | `global.json` → `sdk.version` | v0.14.3103 pinned `11.0.100-rc.3.26522.148` with `allowPrerelease: true`; v0.14.3104 pins the GA `11.0.100` without it. A mismatch fails `dotnet publish` with "A compatible .NET SDK was not found". |
+| pnpm | `package.json` → `packageManager` | `pnpm@9.15.0`, sometimes with a `+sha512…` integrity suffix. |
+| Node | `.github/workflows/release.yml` → `node-version` | The only machine-readable place; there is no `engines` field. |
+
+Read them from the tag instead of copying a value:
+
+```powershell
+bash wrapper/upstream-toolchain.sh v0.14.3104   # dotnet=… pnpm=… node=…
+bash wrapper/upstream-toolchain.sh --get dotnet v0.14.3104
+```
+
+Both workflows do this in a `Resolve the upstream toolchain` step inside the build job and
+feed the values to `actions/setup-dotnet`, `pnpm/action-setup` and `actions/setup-node`.
+It runs per matrix entry, because one run can build different tags (a new version and the
+missing RID of an older one) that pin different toolchains. `build-portable.mjs`
+repeats the check against the clone (via `wrapper/lib/toolchain-check.mjs`) so a local
+build fails in seconds with the pinned version instead of deep inside the AOT publish.
+When a tag has no usable pin, the helper falls back to the documented defaults
+(pnpm 9.15.0, Node 24) and emits a `::warning::` — do not silence those.
+
+`.mise.toml` keeps Node 24 and pnpm 9.15.0 only as a local convenience; `mise run toolchain`
+prints what the current upstream release actually uses, and `mise run toolchain:tag
+v0.14.3104` does the same for one tag. Both need `gh` on the PATH of the shell mise uses.
 
 Fast checks:
 
 ```powershell
 node --check wrapper/build-portable.mjs
 node --check wrapper/latest-upstream-tag.mjs
+node --check wrapper/lib/toolchain-check.mjs
 node --check scripts/package-portable.mjs
 bash -n wrapper/lib/semver.sh
 bash -n wrapper/resolve-release.sh
 bash -n wrapper/publish-release.sh
+bash -n wrapper/upstream-toolchain.sh
+node wrapper/lib/toolchain-check.test.mjs
 mise tasks validate
 ```
 
@@ -144,6 +179,11 @@ Do not squash wrapper changes into the PR-able commit. If a change spans both, s
 
 - `portable-ci.yml` is path-filtered to wrapper files, builds the latest stable upstream
   on `windows-latest`, and uploads an artifact. It never publishes a release.
+- Both workflows install the toolchain the *target tag* pins
+  (`wrapper/upstream-toolchain.sh`), never a version written in the YAML. A hardcoded pin
+  breaks as soon as upstream moves it: v0.14.3104 switched the .NET SDK from
+  `11.0.100-rc.3.26522.148` to the GA `11.0.100` and the build failed with
+  "A compatible .NET SDK was not found".
 - `portable-release.yml` runs every four hours and on manual dispatch. `resolve-release.sh`
   builds a plan of `(tag, rid)` pairs and answers three questions:
   - which tags need work: the latest stable upstream tag, the newest version we already

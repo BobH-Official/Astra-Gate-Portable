@@ -175,7 +175,11 @@ Requirements:
 - Windows 10/11, x64 or arm64.
 - Git, PowerShell 5+.
 - Node.js 24, pnpm 9.15.0.
-- .NET SDK `11.0.100-rc.3.26522.148` (the version upstream pins in `global.json`).
+- .NET SDK matching the target tag's `global.json`. Upstream moves this pin between
+  releases — `11.0.100-rc.3.26522.148` before .NET 11 GA, the GA `11.0.100` from
+  `v0.14.3104` — so read it instead of copying it:
+  `bash wrapper/upstream-toolchain.sh v0.14.3104` also prints the pnpm and Node versions
+  the tag builds with, and `build-portable.mjs` checks all three before building.
 
 With mise (`mise install` installs Node.js and pnpm; install the .NET SDK separately):
 
@@ -206,10 +210,18 @@ node wrapper/latest-upstream-tag.mjs
 mise tasks validate
 node --check wrapper/build-portable.mjs
 node --check wrapper/latest-upstream-tag.mjs
+node --check wrapper/lib/toolchain-check.mjs
 node --check scripts/package-portable.mjs
 bash -n wrapper/lib/semver.sh
 bash -n wrapper/resolve-release.sh
 bash -n wrapper/publish-release.sh
+bash -n wrapper/upstream-toolchain.sh
+node wrapper/lib/toolchain-check.test.mjs
+
+# Toolchain the target tag actually uses (needs gh on PATH).
+mise run toolchain
+mise run toolchain:tag v0.14.3104
+bash wrapper/upstream-toolchain.sh v0.14.3104
 ```
 
 `--prepare-only` is safe on non-Windows hosts. The full build requires Windows because
@@ -253,6 +265,8 @@ translation. Everything under `wrapper/` is intentionally outside upstream's tre
 | `scripts/package-portable.mjs` | Builds the portable ZIP from an upstream checkout. Self-contained and intended to be PR-able. | Yes |
 | `wrapper/build-portable.mjs` | Wrapper-only orchestrator: resolves the tag, clones upstream, overlays scripts/patches, builds, packages. | No |
 | `wrapper/latest-upstream-tag.mjs` | Reads the latest stable upstream release tag from the GitHub API. | No |
+| `wrapper/upstream-toolchain.sh` | Prints the .NET SDK, pnpm and Node versions the target tag builds with. | No |
+| `wrapper/lib/toolchain-check.mjs` | Compares a checkout's toolchain pins with the installed tools before a build. | No |
 | `wrapper/resolve-release.sh` | Plans a release run: which versions and RIDs to build, which release owns `latest`. | No |
 | `wrapper/lib/semver.sh` | Shared version ordering helpers. | No |
 | `wrapper/publish-release.sh` | Publishes the release: verifies checksums, uploads assets, merges notes across partial runs. | No |

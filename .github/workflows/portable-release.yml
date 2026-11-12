@@ -90,24 +90,36 @@ jobs:
         shell: bash
         run: git config --global core.longpaths true
 
+      - name: Resolve the upstream toolchain
+        id: toolchain
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ matrix.tag }}
+        run: |
+          set -euo pipefail
+          bash wrapper/upstream-toolchain.sh "$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved for $TAG:"
+          bash wrapper/upstream-toolchain.sh "$TAG"
+
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: ${{ steps.toolchain.outputs.node }}
 
       - uses: pnpm/action-setup@v6
         with:
-          version: 9.15.0
+          version: ${{ steps.toolchain.outputs.pnpm }}
 
       - uses: actions/setup-dotnet@v6
         id: dotnet
         continue-on-error: true
         with:
-          dotnet-version: 11.0.100-rc.3.26522.148
+          dotnet-version: ${{ steps.toolchain.outputs.dotnet }}
 
       - uses: actions/setup-dotnet@v6
         if: steps.dotnet.outcome == 'failure'
         with:
-          dotnet-version: 11.0.100-rc.3.26522.148
+          dotnet-version: ${{ steps.toolchain.outputs.dotnet }}
 
       - name: Check scripts
         shell: bash
@@ -115,10 +127,13 @@ jobs:
           set -euo pipefail
           node --check wrapper/build-portable.mjs
           node --check wrapper/latest-upstream-tag.mjs
+          node --check wrapper/lib/toolchain-check.mjs
           node --check scripts/package-portable.mjs
           bash -n wrapper/lib/semver.sh
           bash -n wrapper/resolve-release.sh
           bash -n wrapper/publish-release.sh
+          bash -n wrapper/upstream-toolchain.sh
+          node wrapper/lib/toolchain-check.test.mjs
 
       - name: Check Scoop helpers (Windows PowerShell 5.1)
         shell: powershell

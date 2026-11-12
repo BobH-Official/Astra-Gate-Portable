@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checkToolchain, describeProblem } from './lib/toolchain-check.mjs';
 
 const usage = `Usage: node wrapper/build-portable.mjs [options]
 
@@ -139,6 +140,28 @@ for (const required of ['scripts/rid-map.mjs', 'scripts/pack-platform.mjs']) {
   if (!fs.existsSync(path.join(upstreamDir, ...required.split('/')))) {
     fail(`The upstream tag ${tag} does not contain ${required}.`);
   }
+}
+
+// Preflight the local toolchain against what this tag asks for. Upstream moved
+// the .NET pin from 11.0.100-rc.3.26522.148 to the GA 11.0.100 between
+// v0.14.3103 and v0.14.3104, and pnpm comes from `packageManager`; a mismatch
+// otherwise shows up as a confusing "A compatible .NET SDK was not found" in
+// the middle of a long build. CI installs these versions from
+// wrapper/upstream-toolchain.sh, so this mainly protects local builds.
+const toolchain = checkToolchain({ upstreamDir, tag });
+for (const problem of toolchain.problems) {
+  fail(describeProblem({ ...problem, tag }));
+}
+for (const warning of toolchain.warnings) {
+  console.warn(
+    `[build-portable] warning: pnpm ${warning.actual} is on PATH but ${tag} pins ${warning.pinned}; continuing, the lockfile should still apply.`,
+  );
+}
+if (toolchain.dotnet) {
+  console.log(`[build-portable] dotnet ${toolchain.dotnet} (tag pins ${toolchain.pins.dotnet ?? 'nothing'})`);
+}
+if (toolchain.pnpm) {
+  console.log(`[build-portable] pnpm ${toolchain.pnpm}`);
 }
 
 fs.copyFileSync(path.join(root, 'scripts', 'package-portable.mjs'), path.join(upstreamDir, 'scripts', 'package-portable.mjs'));

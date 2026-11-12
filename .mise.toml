@@ -11,3 +11,15 @@ run = "node wrapper/build-portable.mjs"
 [tasks.check-upstream]
 description = "Print the latest stable upstream Astra-Gate release tag"
 run = "node wrapper/latest-upstream-tag.mjs"
+
+# The tools above are local conveniences. Upstream pins the toolchain per tag and
+# moves it independently (v0.14.3104 switched the .NET SDK to the GA), so neither
+# CI nor a build should copy these values: read them from the tag instead.
+[tasks.toolchain]
+description = "Print the toolchain versions the latest upstream release builds with"
+run = "bash wrapper/upstream-toolchain.sh"
+
+[tasks."toolchain:tag"]
+description = "Print the toolchain versions a specific upstream tag builds with"
+run = "bash wrapper/upstream-toolchain.sh"
+args = ["tag"]
