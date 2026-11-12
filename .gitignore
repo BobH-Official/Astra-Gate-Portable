@@ -1,5 +1,6 @@
 /.upstream/
 /out/
+/dist/
 /mise.local.toml
 /.mise.local.toml
 .DS_Store

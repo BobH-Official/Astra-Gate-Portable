@@ -43,6 +43,9 @@ Only `scripts/package-portable.mjs` mirrors an upstream path exactly. Everything
 | `scripts/package-portable.mjs` | PR-able packaging script; runs inside an upstream checkout. |
 | `wrapper/build-portable.mjs` | Wrapper-only orchestrator: tag resolution, clone, overlay, patches, build, package. |
 | `wrapper/latest-upstream-tag.mjs` | Wrapper-only GitHub API helper. |
+| `wrapper/resolve-release.sh` | Wrapper-only planner: picks the tags/RIDs a run must build and the release that owns `latest`. |
+| `wrapper/lib/semver.sh` | Shared version ordering helpers (`semver_key`, `semver_valid`, `semver_is_stable`). |
+| `wrapper/publish-release.sh` | Wrapper-only release publisher: verifies and uploads assets, merges notes across partial runs. |
 | `wrapper/scoop/scoop-register-protocol.ps1` | Optional Notes helper: registers `astra://` for an app directory. |
 | `wrapper/scoop/scoop-unregister-protocol.ps1` | Optional Notes helper: removes the `astra://` registration, the reverse of the register script. |
 | `.mise.toml` | Tool versions and local tasks. |
@@ -64,6 +67,9 @@ Fast checks:
 node --check wrapper/build-portable.mjs
 node --check wrapper/latest-upstream-tag.mjs
 node --check scripts/package-portable.mjs
+bash -n wrapper/lib/semver.sh
+bash -n wrapper/resolve-release.sh
+bash -n wrapper/publish-release.sh
 mise tasks validate
 ```
 
@@ -130,7 +136,7 @@ Do not squash wrapper changes into the PR-able commit. If a change spans both, s
 - `portable-ci.yml` runs on `pull_request` and on `push` to `master`, path-filtered to
   `scripts/**`, `wrapper/**`, `.mise.toml`, `UPSTREAM` and both workflow files. It also
   has `workflow_dispatch` with an optional `tag` input.
-- `portable-release.yml` runs on the `schedule` `23 */6 * * *` and on
+- `portable-release.yml` runs on the `schedule` `23 */4 * * *` (every four hours) and on
   `workflow_dispatch` with `tag`, `rid` and `force` inputs. `rid` is `win-x64`,
   `win-arm64`, or `both`. It has no push trigger.
 
@@ -138,18 +144,54 @@ Do not squash wrapper changes into the PR-able commit. If a change spans both, s
 
 - `portable-ci.yml` is path-filtered to wrapper files, builds the latest stable upstream
   on `windows-latest`, and uploads an artifact. It never publishes a release.
-- `portable-release.yml` runs every six hours and on manual dispatch. It resolves the
-  latest stable tag (or an input tag), checks the release assets for the requested RID or
-  RIDs, and skips only when every expected
-  `Astra-<version>-win32-<arch>-portable.zip` and its `.sha256` are already present.
-  Otherwise it builds the requested set and creates or updates the release with the ZIPs,
-  SHA-256 files and `build-info-<rid>.json` files. `force` bypasses the asset check.
+- `portable-release.yml` runs every four hours and on manual dispatch. `resolve-release.sh`
+  builds a plan of `(tag, rid)` pairs and answers three questions:
+  - which tags need work: the latest stable upstream tag, the newest version we already
+    published (so a release whose ARM64 leg failed is completed), and, when catch-up is
+    enabled, every stable version released after the newest published one;
+  - which RIDs are missing per tag: a tag is skipped when its
+    `Astra-<version>-win32-<arch>-portable.zip` and `.sha256` are both attached to the
+    release; `force` makes every requested RID missing;
+  - which release must own GitHub's `latest` marker (see below).
+- Version gaps are expected: the poll runs every four hours and upstream can publish twice
+  in between. A scheduled run enables catch-up (`MAX_CATCH_UP`, default 5, drops the
+  oldest of a larger gap) so an intermediate version is still published; a dispatch opts
+  in with `catch_up: true`, and an explicit `tag` always disables it. Superseded versions
+  are worth keeping because they are the fallback when the newest tag does not build.
+- The `build` matrix has one job per `(version, rid)`. Artifacts are named
+  `astra-portable-<version>-<rid>`, and the release job downloads its own version with
+  `astra-portable-<version>-win-*` so a preview of the same version cannot leak into a
+  stable release.
+- `latest` handling: GitHub marks whatever release was created last as latest, so a manual
+  backfill of an older version would steal `releases/latest` from a newer one. The
+  resolver computes the highest stable version from the releases that already exist plus
+  the ones this run publishes, and every release job passes it as `LATEST_STABLE_TAG`;
+  anything older is created/edited with `--latest=false` and gets a "newer build
+  available" note. Previews never send a latest flag. The publisher re-checks that the
+  newer release actually has a ZIP before demoting anything, so a failed newer build
+  cannot leave `releases/latest` empty. Do not let the publisher decide this per job, and
+  do not rely on creation order.
+- The `build` matrix uploads `out/portable/<rid>/*` per RID. The upload path must not
+  wildcard the RID directory (`out/portable/*/*.zip`): upload-artifact keeps the hierarchy
+  below the first wildcard, which nests the files under `win-x64/` and leaves `dist/`
+  holding directories instead of assets.
+- The `release` matrix has one job per tag and is serialised with `max-parallel: 1`; it
+  runs even when part of the build matrix failed (`always()` plus a `resolve` guard). It
+  publishes the RIDs that succeeded and warns about the rest; the next tick rebuilds the
+  missing pieces because the resolver looks at the assets attached to the release, not at
+  what a previous run intended to build. A tag with no artifact at all is a warning when
+  the matrix failed and an error when it succeeded.
 - Manual dispatch inputs are `tag` (empty = latest stable), `rid` (`win-x64`,
-  `win-arm64`, or `both`) and `force` (rebuild an existing release). Preview tags are not
+  `win-arm64`, or `both`), `force` (rebuild an existing release) and `catch_up` (also
+  build stable versions released since the newest published build). Preview tags are not
   discovered automatically; dispatch with the preview tag.
-- Every release must include the `.sha256` asset; the release job verifies it with
-  `sha256sum -c` before publishing and repeats the hash plus the Scoop `hash.url` in the
-  release notes. Do not remove it: Scoop and manual verification use it.
+- Every release must include the `.sha256` asset; `wrapper/publish-release.sh` verifies it
+  with `sha256sum -c` before publishing, re-checks the uploaded asset digest, and repeats
+  the hash plus the Scoop `hash.url` in the release notes. Do not remove it: Scoop and
+  manual verification use it.
+- Release notes are generated from the assets attached to the release, not from the
+  current `dist/`. A run that only fills in one RID keeps the other RID's hash line, so
+  notes must stay additive and must never be rewritten from the last build alone.
 - The packaging script copies the upstream `LICENSE` and `THIRD_PARTY_NOTICES.md` into the
   portable ZIP. Keep that behavior when changing the packaging script.
 - The release job copies `wrapper/scoop/*.ps1` into `dist`, writes a `.sha256` for each
@@ -158,8 +200,8 @@ Do not squash wrapper changes into the PR-able commit. If a change spans both, s
 - The release asset check covers the expected ZIPs and their `.sha256` assets. If a
   release predates the optional Scoop Notes helpers, rebuild with `force` or upload the
   helpers manually.
-- The scheduled build uses `win-x64`. `win-arm64` and `both` are manual-only and require
-  the `windows-11-arm` runner.
+- A scheduled run covers both RIDs, so the arm64 leg needs the `windows-11-arm` runner.
+  A failure there does not block the x64 publication; the next tick retries only arm64.
 - Scheduled workflows run only on the default branch. GitHub may disable a schedule after
   60 days without repository activity; re-enable it if needed.
 
@@ -169,12 +211,47 @@ A GitHub Actions `release` event only fires in the repository where the release 
 published. A wrapper repository (or a fork) cannot subscribe to another repository's
 release events. The options are:
 
-1. Scheduled polling (implemented): no upstream cooperation; up to ~6 hours delay.
+1. Scheduled polling (implemented): no upstream cooperation; up to ~4 hours delay.
 2. `repository_dispatch` from upstream: requires the maintainers to add a token and a
    dispatch step; lowest latency if they agree.
 3. Webhook/GitHub App/RSS bridge: an extra service to host and maintain.
 
 Do not replace the poll with `on: release` for upstream.
+
+### Release planner and publisher
+
+`wrapper/resolve-release.sh` decides what to do; `wrapper/publish-release.sh` does it.
+Both are wrapper-only bash scripts with no inline logic left in the YAML, so they can be
+tested with a stubbed `gh`.
+
+`resolve-release.sh`:
+1. lists this repository's releases (drafts excluded) and the upstream stable releases
+   through `gh api`;
+2. reads its inputs (`INPUT_TAG`, `INPUT_RID`, `INPUT_FORCE`, `INPUT_CATCH_UP`);
+3. writes `build_matrix` (`{"include":[{tag, version, rid}]}`), `release_matrix`
+   (`{"include":[{tag, version}]}`), `latest_stable` and `skip` to `GITHUB_OUTPUT`. The
+   workflow feeds both objects straight to `strategy.matrix`, so an empty result is still
+   a valid matrix and versions are visited newest first.
+
+`publish-release.sh`:
+1. verifies every `dist/*.sha256` with `sha256sum -c` and rejects a ZIP without its
+   checksum file;
+2. creates the release when it is missing and uploads every asset with `--clobber`;
+3. re-reads the release through the API and fails when an asset did not land or its
+   digest differs from the local file;
+4. regenerates the notes from the assets attached to the release, so a run that only
+   fills one RID keeps the other RID's hash line, and adds a "newer build available" note
+   when the release is not the newest stable one;
+5. passes `--latest` only to the release named by `LATEST_STABLE_TAG`, and
+   `--latest=false` to older ones — but only after confirming the newer release really
+   carries a `-portable.zip` asset. A planned version can fail to build, and demoting
+   every remaining release would leave `releases/latest` (and Scoop's `$url`) empty;
+6. exits non-zero only when nothing could be published.
+
+Keep release logic in those scripts rather than inline in the workflow. They need bash 4
+or newer (associative arrays and `mapfile`); `ubuntu-latest` ships bash 5. CI checks them
+with `bash -n`; ordering lives in `wrapper/lib/semver.sh`, so do not compare version
+strings with `<` or `sort` directly.
 
 ## Patches
 

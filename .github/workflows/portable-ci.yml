@@ -70,6 +70,9 @@ jobs:
           node --check wrapper/build-portable.mjs
           node --check wrapper/latest-upstream-tag.mjs
           node --check scripts/package-portable.mjs
+          bash -n wrapper/lib/semver.sh
+          bash -n wrapper/resolve-release.sh
+          bash -n wrapper/publish-release.sh
 
       - name: Check Scoop helpers (Windows PowerShell 5.1)
         shell: powershell

@@ -8,7 +8,7 @@ Unofficial, unpack-and-run Windows builds of
 | Repository | [BobH-Official/Astra-Gate-Portable](https://github.com/BobH-Official/Astra-Gate-Portable) |
 | Upstream | [239573049/Astra-Gate](https://github.com/239573049/Astra-Gate) |
 | License | [MIT](LICENSE), same terms as upstream |
-| Platform | Windows x64 and ARM64; manual dispatch can build either or both |
+| Platform | Windows x64 and ARM64; scheduled and manual runs cover both |
 | Scope | Unofficial portable packaging; this repository is not a source fork |
 
 This repository does not contain Astra Gate source code. Each release is built from an
@@ -130,8 +130,8 @@ On a system with `sha256sum`:
 sha256sum -c Astra-<version>-win32-x64-portable.zip.sha256
 ```
 
-The release workflow verifies the checksum before publishing and repeats the hash in the
-release notes.
+The release workflow verifies the checksum before publishing, re-checks the uploaded
+digest, and repeats the hash in the release notes.
 
 ### Scoop
 
@@ -147,18 +147,26 @@ Adjust the manifest URL for the ARM64 asset if needed.
 
 ## Releases
 
-Stable upstream releases are discovered automatically every six hours. Release tags use
+Stable upstream releases are discovered automatically every four hours. Release tags use
 the upstream tag with a prefix:
 
 ```text
 portable-<upstream tag>    # e.g. portable-v0.14.3100
 ```
 
-Preview versions are marked as prereleases and are not built automatically. Scheduled
-builds target `win-x64`. Manual dispatch can build `win-x64`, `win-arm64`, or `both`;
-ARM64 and `both` require the `windows-11-arm` runner. An existing release is skipped only
-when it already contains the expected ZIP and `.sha256` assets for every requested RID;
-otherwise the requested set is rebuilt and the release assets are updated.
+Preview versions are marked as prereleases and are not built automatically.
+
+Scheduled runs cover both `win-x64` and `win-arm64` and only rebuild what is actually
+missing from a release, so a complete release is skipped and a half-published one (e.g. a
+failed ARM64 job) is repaired on the next tick. If upstream publishes more than one
+version between two polls, the intermediate versions are built too, so the newest build is
+not the only one available if it turns out to be broken. Manual dispatch can narrow the
+work down to `win-x64`, `win-arm64`, or `both`, and can set `catch_up` to include versions
+released since the newest published build.
+
+Publishing an older version never moves the "latest release" marker: only the highest
+stable version is marked latest, and backfilled releases carry a note pointing at the
+newer one. That keeps `releases/latest` and the Scoop `$url` on the newest build.
 
 ## Build from source
 
@@ -199,6 +207,9 @@ mise tasks validate
 node --check wrapper/build-portable.mjs
 node --check wrapper/latest-upstream-tag.mjs
 node --check scripts/package-portable.mjs
+bash -n wrapper/lib/semver.sh
+bash -n wrapper/resolve-release.sh
+bash -n wrapper/publish-release.sh
 ```
 
 `--prepare-only` is safe on non-Windows hosts. The full build requires Windows because
@@ -242,6 +253,9 @@ translation. Everything under `wrapper/` is intentionally outside upstream's tre
 | `scripts/package-portable.mjs` | Builds the portable ZIP from an upstream checkout. Self-contained and intended to be PR-able. | Yes |
 | `wrapper/build-portable.mjs` | Wrapper-only orchestrator: resolves the tag, clones upstream, overlays scripts/patches, builds, packages. | No |
 | `wrapper/latest-upstream-tag.mjs` | Reads the latest stable upstream release tag from the GitHub API. | No |
+| `wrapper/resolve-release.sh` | Plans a release run: which versions and RIDs to build, which release owns `latest`. | No |
+| `wrapper/lib/semver.sh` | Shared version ordering helpers. | No |
+| `wrapper/publish-release.sh` | Publishes the release: verifies checksums, uploads assets, merges notes across partial runs. | No |
 | `.mise.toml` | Tool versions and local tasks. | No |
 | `.github/workflows/portable-ci.yml` | Builds pull requests and `master` pushes; no release. | No |
 | `.github/workflows/portable-release.yml` | Scheduled/manual upstream check, build and GitHub release. | No |
