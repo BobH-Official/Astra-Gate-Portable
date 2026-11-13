@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="CMakeProjectFlavorService">
+    <option name="flavorId" value="CMakePlainProjectFlavor" />
+  </component>
+  <component name="CMakeSettings">
+    <configurations />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="95499e32-39bb-4f3e-b940-98a76d59a4d5" name="更改" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="mock:///Dummy.cs" root0="SKIP_HIGHLIGHTING" />
+  </component>
+  <component name="JujutsuSettings">
+    <option name="logWindows">
+      <list>
+        <LogWindowConfig>
+          <option name="fitColumnsToWidthResolved" value="true" />
+          <option name="id" value="default" />
+          <option name="name" value="Jujutsu Log" />
+        </LogWindowConfig>
+      </list>
+    </option>
+    <option name="workingCopyAutoOpened" value="true" />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.000000052281176" />
+      <entry key="MS500" value="1.0458008006231023" />
+      <entry key="S2" value="1.9631230784141591" />
+      <entry key="S5" value="2.889310111155913" />
+      <entry key="S10" value="3.377613977408214" />
+      <entry key="S30" value="3.7754602785127966" />
+      <entry key="S60" value="3.8854423218459835" />
+      <entry key="M2" value="3.942137024441578" />
+      <entry key="M5" value="3.9767130268735853" />
+      <entry key="M10" value="3.9883362647927063" />
+      <entry key="M15" value="3.9929014582703553" />
+      <entry key="M30" value="4.151108938874395" />
+      <entry key="H1" value="6.51224635107399" />
+      <entry key="H2" value="14.329692431470816" />
+      <entry key="H4" value="25.042810308800252" />
+      <entry key="D1" value="42.16351865666727" />
+      <entry key="W1" value="46.2730266418472" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="0.0" />
+      <entry key="M2" value="0.0" />
+      <entry key="M5" value="0.0" />
+      <entry key="M10" value="0.0" />
+      <entry key="M15" value="0.0" />
+      <entry key="M30" value="0.0" />
+      <entry key="H1" value="0.0" />
+      <entry key="H2" value="0.0" />
+      <entry key="H4" value="0.0" />
+      <entry key="D1" value="0.0" />
+      <entry key="W1" value="0.0" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="0.9592641694765085" />
+      <entry key="MS500" value="1.0371112787621402" />
+      <entry key="S2" value="1.9586207158432032" />
+      <entry key="S5" value="2.8865135090271474" />
+      <entry key="S10" value="3.3759482055142396" />
+      <entry key="S30" value="3.7748317773401556" />
+      <entry key="S60" value="3.8851179061672587" />
+      <entry key="M2" value="3.941972193366896" />
+      <entry key="M5" value="3.976646454097259" />
+      <entry key="M10" value="3.988302870745841" />
+      <entry key="M15" value="3.9928791681912372" />
+      <entry key="M30" value="4.15109736534263" />
+      <entry key="H1" value="6.512237226187751" />
+      <entry key="H2" value="14.329682203462935" />
+      <entry key="H4" value="25.042801261617804" />
+      <entry key="D1" value="42.16351609232411" />
+      <entry key="W1" value="46.27302623913736" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 1,
+  "fromUser": false
+}]]></component>
+  <component name="ProjectId" id="3M30lhfs8DxqwXYpIQsz9ZtNL9Z" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "JujutsuToolWindow.CollapsedPaths.3f7dacd7": "E:\\Code\\HubGit\\Astra-Gate-Portable/.idea|E:\\Code\\HubGit\\Astra-Gate-Portable/.junie\\mcp",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "cidr.known.project.marker": "true",
+    "jujutsu.statusbar.recentRoot": "E:/Code/HubGit/Astra-Gate-Portable",
+    "nodejs_package_manager_path": "pnpm",
+    "settings.editor.selected.configurable": "terminal"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="默认任务">
+      <changelist id="95499e32-39bb-4f3e-b940-98a76d59a4d5" name="更改" comment="" />
+      <created>1794564097200</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1794564097200</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
+  <component name="VcsManagerConfiguration">
+    <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.OperationCanceledException" breakIfHandledByOtherCode="false" displayValue="System.OperationCanceledException" />
+          <option name="timeStamp" value="1" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.Threading.Tasks.TaskCanceledException" breakIfHandledByOtherCode="false" displayValue="System.Threading.Tasks.TaskCanceledException" />
+          <option name="timeStamp" value="2" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.Threading.ThreadAbortException" breakIfHandledByOtherCode="false" displayValue="System.Threading.ThreadAbortException" />
+          <option name="timeStamp" value="3" />
+        </breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>

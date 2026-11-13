@@ -89,6 +89,24 @@ build fails in seconds with the pinned version instead of deep inside the AOT pu
 When a tag has no usable pin, the helper falls back to the documented defaults
 (pnpm 9.15.0, Node 24) and emits a `::warning::` — do not silence those.
 
+The pnpm install has to survive a pin change, because one release run can build a
+new tag and the missing RID of an older one. `pnpm/action-setup@v6` stays: its
+successor `pnpm/setup` only installs pnpm 11 and newer, while upstream pins
+`pnpm@9.15.0`, and v6 still accepts an explicit `version` — unlike upstream's
+`pnpm/action-setup@v4`, which reads it from the *upstream* `package.json`, a file
+this repository does not contain. Each build job logs the Node and pnpm it
+resolved and stops when pnpm is missing or its major differs from the pin, so a
+runner-wide pnpm cannot slip into a build of a tag that pins another major. That
+check matters because the runner image ships its own pnpm and installs the
+pnpm 9/10 shims and the pnpm 11+ binaries in different directories.
+
+On Windows pnpm is a `.cmd` shim: a shell-less `execFileSync('pnpm', …)` fails
+with ENOENT because `CreateProcess` only resolves `.exe`, even though every shell
+— including the `shell: bash` steps — finds pnpm on the same PATH. That is why
+`wrapper/lib/toolchain-check.mjs` starts the version probe through the shell on
+Windows (`createExec`) instead of trusting a bare `execFileSync`; `pnpm install`
+in `build-portable.mjs` uses the same helper.
+
 `.mise.toml` keeps Node 24 and pnpm 9.15.0 only as a local convenience; `mise run toolchain`
 prints what the current upstream release actually uses, and `mise run toolchain:tag
 v0.14.3104` does the same for one tag. Both need `gh` on the PATH of the shell mise uses.

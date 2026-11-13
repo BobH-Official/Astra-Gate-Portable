@@ -14,6 +14,27 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
+/**
+ * `execFileSync`, adapted to the shims a Windows install provides.
+ *
+ * pnpm is a Node package, so on Windows it installs `pnpm.cmd` (+ `pnpm.ps1`)
+ * and no `.exe`. `CreateProcess` only resolves `.exe`, so a shell-less
+ * `execFileSync('pnpm', …)` throws ENOENT while every shell — including the
+ * `shell: bash` steps of the workflows — finds pnpm on the very same PATH. That
+ * made the preflight reject a correctly installed pnpm (CI: "pnpm is not on
+ * PATH, but the tag pins pnpm 9.15.0").
+ *
+ * Node deprecates `shell: true` together with an args array (DEP0190), so the
+ * command is handed over as a single string there. Every argument this module
+ * passes is a literal token, so nothing needs quoting.
+ *
+ * `platform` and `execFile` are injectable so the tests can cover both shapes.
+ */
+export function createExec({ platform = process.platform, execFile = execFileSync } = {}) {
+  if (platform !== 'win32') return execFile;
+  return (file, args, options) => execFile([file, ...args].join(' '), { ...options, shell: true });
+}
+
 /** Read the pins from a checked-out upstream tree. */
 export function readPins(upstreamDir, readFile = fs.readFileSync, exists = fs.existsSync) {
   const pins = {};
@@ -32,11 +53,13 @@ export function readPins(upstreamDir, readFile = fs.readFileSync, exists = fs.ex
 /**
  * Compare the checkout's pins with the installed tools.
  *
- * `exec` is injectable so tests do not need dotnet or pnpm on PATH. `dotnet` is
- * asked while its cwd is the checkout, so the CLI resolves global.json itself
- * (rollForward / allowPrerelease) instead of this module guessing.
+ * `exec` is injectable so tests do not need dotnet or pnpm on PATH; it defaults
+ * to `createExec()`, which can see the `.cmd` shims a Windows install uses.
+ * `dotnet` is asked while its cwd is the checkout, so the CLI resolves
+ * global.json itself (rollForward / allowPrerelease) instead of this module
+ * guessing.
  */
-export function checkToolchain({ upstreamDir, tag, exec = execFileSync }) {
+export function checkToolchain({ upstreamDir, tag, exec = createExec() }) {
   const pins = readPins(upstreamDir);
   const problems = [];
   const warnings = [];

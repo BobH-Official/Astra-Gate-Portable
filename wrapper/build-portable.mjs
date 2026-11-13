@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkToolchain, describeProblem } from './lib/toolchain-check.mjs';
+import { checkToolchain, createExec, describeProblem } from './lib/toolchain-check.mjs';
 
 const usage = `Usage: node wrapper/build-portable.mjs [options]
 
@@ -107,8 +107,13 @@ async function retry(attempts, label, fn) {
   }
 }
 
+// pnpm is a `.cmd` shim on Windows; createExec() knows how to start it (and
+// keeps the probe in lib/toolchain-check.mjs on the same rules).
+const runPnpm = createExec();
+
 function pnpm(args) {
-  return run('pnpm', args, { cwd: upstreamDir, shell: process.platform === 'win32' });
+  console.log(`[build-portable] $ pnpm ${args.join(' ')}`);
+  return runPnpm('pnpm', args, { cwd: upstreamDir, stdio: 'inherit' });
 }
 
 console.log(`[build-portable] upstream=${upstreamSlug} tag=${tag} version=${version} rid=${rid}`);

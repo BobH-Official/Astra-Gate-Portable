@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { checkToolchain, describeProblem, readPins } from './toolchain-check.mjs';
+import { checkToolchain, createExec, describeProblem, readPins } from './toolchain-check.mjs';
 
 let failures = 0;
 function test(name, fn) {
@@ -144,6 +144,40 @@ test('a missing pnpm is a problem', () => {
   });
   assert.equal(result.problems[0].kind, 'pnpm-missing');
   assert.match(describeProblem(result.problems[0]), /not on PATH/);
+});
+
+test('on Windows the probe runs the .cmd shim through the shell', () => {
+  const calls = [];
+  const exec = createExec({
+    platform: 'win32',
+    execFile: (file, options) => {
+      calls.push({ file, options });
+      return file.startsWith('dotnet') ? '11.0.100\n' : '9.15.0\n';
+    },
+  });
+  const dir = upstream({ dotnet: '11.0.100', packageManager: 'pnpm@9.15.0' });
+  const result = checkToolchain({ upstreamDir: dir, tag: 'v0.14.3106', exec });
+  assert.deepEqual(result.problems, []);
+  assert.equal(result.pnpm, '9.15.0');
+  const pnpmCall = calls.find((call) => call.file.startsWith('pnpm'));
+  // `pnpm` alone never resolves: CreateProcess only appends `.exe`.
+  assert.equal(pnpmCall.file, 'pnpm --version');
+  assert.equal(pnpmCall.options.shell, true);
+});
+
+test('off Windows the probe keeps the argv form', () => {
+  const calls = [];
+  const exec = createExec({
+    platform: 'linux',
+    execFile: (file, args, options) => {
+      calls.push({ file, args, options });
+      return '9.15.0\n';
+    },
+  });
+  const dir = upstream({ packageManager: 'pnpm@9.15.0' });
+  checkToolchain({ upstreamDir: dir, tag: 'v0.14.3106', exec });
+  assert.deepEqual(calls[0].args, ['--version']);
+  assert.equal(calls[0].options.shell, undefined);
 });
 
 test('a tag without pins is not checked', () => {

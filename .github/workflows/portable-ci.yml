@@ -60,7 +60,11 @@ jobs:
         with:
           node-version: ${{ steps.toolchain.outputs.node }}
 
+      # pnpm/action-setup@v6 has to stay: its successor (`pnpm/setup`) only
+      # installs pnpm 11 and newer, while upstream tags pin 9.15.0 today and a
+      # run can build tags that pin different majors.
       - uses: pnpm/action-setup@v6
+        id: pnpm
         with:
           version: ${{ steps.toolchain.outputs.pnpm }}
 
@@ -74,6 +78,25 @@ jobs:
         if: steps.dotnet.outcome == 'failure'
         with:
           dotnet-version: ${{ steps.toolchain.outputs.dotnet }}
+
+      # The runner image ships its own pnpm, so make sure the pin this run
+      # resolved is the pnpm the build will actually call.
+      - name: Verify the pnpm the tag pins
+        shell: bash
+        env:
+          EXPECTED_PNPM: ${{ steps.toolchain.outputs.pnpm }}
+          PNPM_BIN: ${{ steps.pnpm.outputs.bin_dest }}
+        run: |
+          set -euo pipefail
+          if ! actual="$(pnpm --version)"; then
+            echo "::error::pnpm is not on PATH; pnpm/action-setup put it in '${PNPM_BIN:-<unknown>}'."
+            exit 1
+          fi
+          echo "node $(node --version), pnpm $actual (pinned ${EXPECTED_PNPM:-(none)})"
+          if [ -n "${EXPECTED_PNPM:-}" ] && [ "${EXPECTED_PNPM%%.*}" != "${actual%%.*}" ]; then
+            echo "::error::pnpm $actual is on PATH but the tag pins ${EXPECTED_PNPM}; a different major cannot read the lockfile."
+            exit 1
+          fi
 
       - name: Check scripts
         shell: bash
